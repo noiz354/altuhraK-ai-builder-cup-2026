@@ -1,0 +1,70 @@
+{
+  "results": [
+    {
+      "name": "crew: manifest loaded from API",
+      "ok": true
+    },
+    {
+      "name": "crew: QC service health badge",
+      "ok": true
+    },
+    {
+      "name": "crew: image preview after validation",
+      "ok": true
+    },
+    {
+      "name": "crew: prediction block rendered",
+      "ok": true
+    },
+    {
+      "name": "crew: confidence stays NOT_CALIBRATED",
+      "ok": true
+    },
+    {
+      "name": "crew: first content clears sticky header at scroll top",
+      "ok": true
+    },
+    {
+      "name": "crew: headings render sans, not serif fallback",
+      "ok": true
+    },
+    {
+      "name": "crew 390: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "admin: KPI from real records",
+      "ok": true
+    },
+    {
+      "name": "admin: evidence pane with unverified treatment",
+      "ok": true
+    },
+    {
+      "name": "admin: approval recorded",
+      "ok": true
+    },
+    {
+      "name": "agent: no raw python dict in the answer",
+      "ok": true
+    },
+    {
+      "name": "agent: grounded tool call visible",
+      "ok": true
+    },
+    {
+      "name": "agent: safety disclaimer present",
+      "ok": true
+    },
+    {
+      "name": "tablet 768: no horizontal overflow",
+      "ok": true
+    },
+    {
+      "name": "no console errors across surfaces",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "consoleErrors": []
+}

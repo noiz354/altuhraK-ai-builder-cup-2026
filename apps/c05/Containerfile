@@ -1,0 +1,50 @@
+# C05 frontend (Next.js) — Cloud Run container.
+#
+# Two stages: dependencies, then a standalone build, then a runtime image that
+# carries only the standalone server and the node_modules it actually imported.
+#
+# C05_API_BASE_URL is read at RUNTIME by the server-side proxy route. It is
+# never a build arg, so no endpoint or credential is baked into a layer and the
+# same image can be promoted across environments.
+
+FROM node:22-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+# `npm ci` installs exactly the lockfile, so the image is reproducible.
+RUN npm ci
+
+
+FROM node:22-slim AS build
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# Standalone output is required by the runtime stage below.
+RUN npm run build
+
+
+FROM node:22-slim AS runtime
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=8080 \
+    HOSTNAME=0.0.0.0
+
+RUN groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs nextjs
+
+# The standalone server is self-contained apart from .next/static and public.
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
+EXPOSE 8080
+
+STOPSIGNAL SIGTERM
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.PORT||8080)+'/crew',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))" || exit 1
+
+CMD ["node", "server.js"]

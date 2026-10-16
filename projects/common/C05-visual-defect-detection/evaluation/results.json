@@ -1,0 +1,12 @@
+{
+  "project_id": "C05",
+  "tests_run": 8,
+  "failures": 0,
+  "errors": 0,
+  "successful": true,
+  "duration_s": 0.62,
+  "scope": "local synthetic baseline/API/UI assets/review/export/provider adapter",
+  "live_model_tested": false,
+  "cloud_deployed": false,
+  "command": "python scripts/verify_mvp.py --project C05"
+}

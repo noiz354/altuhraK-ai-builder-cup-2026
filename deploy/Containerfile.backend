@@ -1,0 +1,59 @@
+# C05 backend — Cloud Run container.
+#
+# Layout constraint: c05_entry.py computes the repo root as
+# Path(__file__).resolve().parents[4], which only resolves correctly when the
+# sea-ai-hackathon/{projects,shared_mvp,config} tree is preserved exactly. The
+# image therefore copies the tree rather than flattening it.
+#
+# Runs unprivileged. No secrets are baked in: every credential arrives as an
+# environment variable or, in cloud, from Secret Manager / workload identity.
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+COPY requirements.txt .
+RUN python -m venv /opt/venv \
+ && /opt/venv/bin/pip install -r requirements.txt
+
+
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PORT=8080
+
+# Non-root runtime. Cloud Run overrides HOME but an explicit user keeps the
+# filesystem writable for the SQLite fallback that local runs still use.
+RUN groupadd --system --gid 1001 c05 \
+ && useradd --system --uid 1001 --gid c05 --create-home c05
+
+WORKDIR /app
+COPY --from=builder /opt/venv /opt/venv
+COPY shared_mvp/ /app/shared_mvp/
+COPY projects/common/C05-visual-defect-detection/src/ \
+     /app/projects/common/C05-visual-defect-detection/src/
+COPY projects/common/C05-visual-defect-detection/config/ \
+     /app/projects/common/C05-visual-defect-detection/config/
+# fixtures/sample.py is loaded by shared_mvp/app.py during startup. Without it
+# the process exits 1 before binding a port.
+COPY projects/common/C05-visual-defect-detection/fixtures/ \
+     /app/projects/common/C05-visual-defect-detection/fixtures/
+
+RUN chown -R c05:c05 /app
+USER c05
+
+EXPOSE 8080
+
+# Cloud Run sends SIGTERM and allows a grace period before SIGKILL. uvicorn
+# finishes in-flight requests on SIGTERM; the grace below must exceed the
+# platform request timeout so a long Gemini call is not cut mid-response.
+STOPSIGNAL SIGTERM
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import os,urllib.request;urllib.request.urlopen(f\"http://127.0.0.1:{os.environ.get('PORT','8080')}/health\",timeout=4).read()" || exit 1
+
+CMD ["python", "projects/common/C05-visual-defect-detection/src/c05_entry.py"]

@@ -1,0 +1,30 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime state (regenerated; never committed)
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Credentials: only *.example templates are tracked
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*credentials*.json
+*service-account*.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

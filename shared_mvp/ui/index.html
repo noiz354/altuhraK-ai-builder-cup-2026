@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local MVP · SEA AI LAB</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <script src="/ui/app.js" defer></script>
+</head>
+<body>
+<header>
+  <a href="/" class="brand">SEA / AI LAB</a>
+  <nav class="tabs" aria-label="Tampilan">
+    <button data-tab="crew" class="tab active">Lapangan</button>
+    <button data-tab="admin" class="tab">Admin</button>
+    <button data-tab="analytics" class="tab">Analitik</button>
+    <button data-tab="pipeline" class="tab">Pipeline</button>
+  </nav>
+  <span class="badge" id="projectBadge">LOCAL · SYNTHETIC</span>
+</header>
+<main>
+  <section id="view-crew" class="view active">
+    <section class="hero">
+      <p class="eyebrow" id="track"></p>
+      <h1 id="title">Memuat proyek…</h1>
+      <p id="goal"></p>
+      <aside id="limits"></aside>
+    </section>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <div class="grid">
+      <section class="panel">
+        <h2><span>01</span> Data & skenario</h2>
+        <p>Mulai dari contoh sintetis, lalu sesuaikan data/parameter.</p>
+        <button id="fixture" class="secondary">Muat contoh</button>
+        <div id="data-preview"></div>
+        <div id="parameter-form"></div>
+        <details><summary>Ubah data / parameter JSON</summary>
+          <label for="data">Input JSON</label><textarea id="data" rows="12" spellcheck="false"></textarea>
+          <label for="params">Parameter run</label><textarea id="params" rows="4" spellcheck="false"></textarea>
+        </details>
+        <label for="mode">Metode</label>
+        <select id="mode"><option value="baseline">Baseline · tanpa model</option><option value="ai">Baseline + Gemini</option></select>
+        <button id="run">Jalankan analisis</button>
+        <details><summary>Kontrak input & output</summary><pre id="schema"></pre></details>
+      </section>
+      <section class="panel results">
+        <div class="heading"><h2><span>02</span> Hasil & bukti</h2><strong id="status">Belum dijalankan</strong></div>
+        <div id="warnings"></div>
+        <h3>Baseline</h3><div id="baseline" class="empty">Hasil deterministik.</div>
+        <h3>Model</h3><div id="ai" class="empty">Belum ada hasil model.</div>
+        <details open><summary>Evidence</summary><div id="evidence"></div></details>
+        <details><summary>Penggunaan & audit</summary><pre id="usage"></pre><pre id="audit"></pre></details>
+      </section>
+    </div>
+    <section class="panel review">
+      <h2><span>03</span> Review & export</h2>
+      <p>Periksa sumber sebelum menyetujui. Mengedit draft membatalkan approval lama.</p>
+      <details><summary>Edit draft JSON</summary><textarea id="draft" rows="10" spellcheck="false"></textarea><button id="save" class="secondary" disabled>Simpan revisi</button></details>
+      <div class="actions"><input id="comment" maxlength="2000" placeholder="Catatan reviewer"><button id="approve" disabled>Setujui</button><button id="reject" class="secondary" disabled>Tolak</button><button id="export" class="secondary" disabled>Unduh hasil</button></div>
+      <p id="review-status">Belum ada review.</p>
+    </section>
+  </section>
+  <section id="view-admin" class="view">
+    <div class="panel clean">
+      <h2>Admin</h2>
+      <p>Konfigurasi, manifest, model clues, dan batas storage 10 GB. Nilai API tetap server-side.</p>
+      <ul>
+        <li>GEMINI_API_KEY: tidak ditampilkan di UI.</li>
+        <li>GEMINI_MODEL: dipilih operator/admin.</li>
+        <li>Demo access group: C11 default A.</li>
+      </ul>
+    </div>
+  </section>
+  <section id="view-analytics" class="view">
+    <div class="panel clean">
+      <h2>Analitik</h2>
+      <p>Ringkasan hasil akan tampil dari log/run yang sudah selesai. Baseline dan AI jangan digabung tanpa label sumber.</p>
+      <pre id="analytics-summary">Belum ada run.</pre>
+    </div>
+  </section>
+  <section id="view-pipeline" class="view">
+    <div class="panel clean">
+      <h2>Pipeline</h2>
+      <p>Status eksekusi run, provider error, retry, dan waktu p95. Jika model gagal, baseline tetap tersedia.</p>
+      <p id="pipeline-status">Siap. Tekan “Jalankan analisis” dari tab Lapangan.</p>
+    </div>
+  </section>
+</main>
+<footer>Demo lokal dengan data sintetis. Hasil uji tidak membuktikan akurasi atau dampak di dunia nyata.</footer>
+</body>
+</html>
+path:
+/home/norman2/13-10-26-ai-builder-cup-26/sea-ai-hackathon/shared_mvp/ui/index.html

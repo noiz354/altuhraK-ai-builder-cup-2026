@@ -1,0 +1,63 @@
+# Keep the build context minimal and prevent credentials reaching a layer.
+#
+# Anything excluded here is invisible to `docker build`, so a secret added to the
+# working tree later cannot leak into an image by accident.
+
+# Credentials and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*credentials*.json
+*service-account*.json
+
+# Runtime state. The SQLite database and uploaded images are regenerated per
+# environment and must never be baked into an image.
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+**/storage/
+**/assets/generated/
+
+# VCS and CI
+.git/
+.gitignore
+.github/
+.git*
+
+# Python caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Node / Next.js — irrelevant to the backend image
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Not needed to serve the API
+docs/
+sea-ai-hackathon-mvp.zip
+templates/
+skills/
+.agents/
+
+# Tests are excluded so the runtime image cannot execute project tests.
+# fixtures/ is NOT excluded: shared_mvp/app.py loads
+# projects/<id>/fixtures/sample.py at application startup, so it is a runtime
+# dependency. Excluding it produced a container that exited 1 with
+# FileNotFoundError before binding a port.
+projects/*/*/tests/
+projects/*/*/evaluation/
+
+# Deployment docs live in the repo, not the image
+deploy/

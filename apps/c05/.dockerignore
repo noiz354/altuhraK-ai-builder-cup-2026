@@ -1,0 +1,34 @@
+# Keep the build context small and keep secrets out of layers.
+
+# Credentials and local environment
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output. The runtime stage copies only .next/standalone
+# and .next/static from the build stage, so shipping these would bloat the image.
+node_modules
+.next
+out
+dist
+build
+
+# VCS and CI
+.git
+.gitignore
+.git*
+.github
+
+# Logs and caches
+*.log
+npm-debug.log*
+coverage
+.eslintcache
+
+# Local QA artefacts. Screenshots are evidence, not runtime assets.
+qa-evidence
+
+# Editor
+.DS_Store
+.idea
+.vscode

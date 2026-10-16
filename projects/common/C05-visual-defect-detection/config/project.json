@@ -1,0 +1,11 @@
+{
+  "id": "C05",
+  "name": "Visual Defect Detection",
+  "track": "Manufacturing",
+  "goal": "menandai cacat visual pada satu jenis produk untuk review inspektur",
+  "inputs": "images:[{image_id:str,asset_path:str,width:int,height:int}]; annotations:[{image_id:str,label:str,boxes:[{x:int,y:int,w:int,h:int}]}]",
+  "params": "{image_id:str}",
+  "output": "{predicted_label:str,regions:[{x:int,y:int,w:int,h:int}],needs_review:bool,confidence_score:float|null,evidence_ids:[str]}",
+  "ai": "Analisis visual sebagai kandidat detector kedua; jelaskan hanya area yang terlihat. predicted_label hanya boleh salah satu dari: meal_complete, missing_component, uncertain. Gunakan missing_component bila ada slot komponen kosong, meal_complete bila semua slot terisi, uncertain bila tidak dapat dipastikan. Aturan wajib: jika predicted_label adalah missing_component atau uncertain, maka needs_review HARUS true; needs_review hanya boleh false bila predicted_label adalah meal_complete. confidence_score HARUS null karena belum terkalibrasi. evidence_ids harus persis berisi satu id bukti gambar yang diberikan pada request. Koordinat region harus di dalam batas gambar.",
+  "limitations": "Data sintetis; belum divalidasi untuk penggunaan nyata. Tidak mencakup: kamera live, reject lini produksi, generalisasi ke semua cacat"
+}
