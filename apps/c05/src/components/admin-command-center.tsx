@@ -94,7 +94,7 @@ export function AdminCommandCenter({ role, kitchenId }: { role: Role; kitchenId:
     try {
       const updated = await c05.reinfer(selected.inspection_id, role);
       setSelected({ ...selected, ...updated, audit: selected.audit });
-      setNotice("New revision created. Previous prediction kept.");
+      setNotice("New revision created. Previous result kept.");
       await refresh();
     } catch (e) {
       setError(e instanceof C05Error ? e.message : String(e));
@@ -123,49 +123,12 @@ export function AdminCommandCenter({ role, kitchenId }: { role: Role; kitchenId:
           <Stat label="Pending review" value={overview?.pending_review ?? 0} tone="review" />
           <Stat label="Approved" value={overview?.approved ?? 0} tone="pass" />
           <Stat label="Rejected" value={overview?.rejected ?? 0} tone="defect" />
-          <Stat label="Failed" value={overview?.failed_inference ?? 0} tone="defect" />
+          <Stat label="Check failed" value={overview?.failed_inference ?? 0} tone="defect" />
         </div>
-        {/* Provenance strip. A supervisor must be able to tell, at a glance, how
-            many results actually came from the model versus the deterministic
-            baseline, and why the rest did not. Collapsing this into one number is
-            what made earlier false-success reports possible. */}
-        <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-md border border-[var(--line)] px-3 py-2">
-            <dt className="label">Model inference</dt>
-            <dd className="font-mono text-[15px] tabular-nums">
-              {overview?.model_inference_count ?? 0}
-            </dd>
-          </div>
-          <div className="rounded-md border border-[var(--line)] px-3 py-2">
-            <dt className="label">Baseline only</dt>
-            <dd className="font-mono text-[15px] tabular-nums">
-              {overview?.baseline_only_count ?? 0}
-            </dd>
-          </div>
-          {Object.entries(overview?.inference_status ?? {})
-            .filter(([k]) => k !== "INFERENCE_SUCCEEDED" && k !== "NOT_REQUESTED")
-            .slice(0, 4)
-            .map(([status, count]) => (
-              <div key={status} className="rounded-md border border-[var(--line)] px-3 py-2">
-                <dt className="label">{status.replace(/_/g, " ").toLowerCase()}</dt>
-                <dd className="font-mono text-[15px] tabular-nums text-[var(--defect)]">{count}</dd>
-              </div>
-            ))}
-        </dl>
-        {Object.keys(overview?.failure_categories ?? {}).length > 0 ? (
-          <p className="meta mt-2">
-            Failure categories:{" "}
-            {Object.entries(overview?.failure_categories ?? {})
-              .map(([code, n]) => `${code}: ${n}`)
-              .join(" · ")}
-          </p>
-        ) : null}
         <p className="meta mt-2">
-          Storage measured: {overview ? `${(overview.storage_bytes / 1024).toFixed(1)} KB` : "—"} of a{" "}
-          {(overview ? overview.storage_budget_bytes / 1024 ** 3 : 10).toFixed(0)} GB budget ·{" "}
           {Object.entries(overview?.labels ?? {})
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ") || "no predictions yet"}
+            .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+            .join(" · ") || "No results yet"}
         </p>
         {error ? <p className="mt-2 text-[13px] text-[var(--defect)]">{error}</p> : null}
       </section>
@@ -241,12 +204,16 @@ export function AdminCommandCenter({ role, kitchenId }: { role: Role; kitchenId:
         <section className="grid gap-4 lg:grid-cols-2">
           <Card className="panel gap-0 p-4">
             <h3 className="label">Evidence</h3>
+            {/* eslint-disable-next-line @next/next/no-img-element -- served by the QC service through the proxy */}
+            <img
+              src={`/api/proxy/api/inspections/${encodeURIComponent(selected.inspection_id)}/image?role=${role}`}
+              alt="The tray photo under review"
+              className="mt-2 mb-3 w-full rounded-[var(--r-control)] border border-[var(--hairline)] bg-[var(--sunken)]"
+            />
             <PredictionBlock
               label={selected.prediction?.predicted_label ?? null}
               regions={selected.prediction?.regions ?? []}
               evidenceIds={selected.evidence_ids}
-              modelVersion={selected.model_version}
-              latencyMs={selected.latency_ms}
             />
             <div className="mt-3">
               <p className="label">Expected manifest v{selected.manifest_version}</p>
@@ -261,7 +228,6 @@ export function AdminCommandCenter({ role, kitchenId }: { role: Role; kitchenId:
             <ul className="mono mt-3 space-y-0.5 text-[var(--ink-3)]">
               <li>image_sha256 {selected.image_sha256.slice(0, 16)}…</li>
               <li>schema {selected.schema_version}</li>
-              <li>prompt {selected.prompt_version}</li>
               <li>revision {selected.revision}</li>
             </ul>
           </Card>
@@ -315,7 +281,7 @@ export function AdminCommandCenter({ role, kitchenId }: { role: Role; kitchenId:
                 Reject review
               </Button>
               <Button type="button" variant="outline" onClick={reinfer} className="h-12">
-                Re-infer (new revision)
+                Check again (new revision)
               </Button>
             </div>
             <div aria-live="polite" className="mt-2">

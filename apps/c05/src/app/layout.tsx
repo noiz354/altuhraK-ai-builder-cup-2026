@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "C05 Visual QC",
-  description: "Food production visual quality control for crew, supervisors and operations",
+  title: { default: "Meal QC", template: "%s · Meal QC" },
+  description: "Food quality control and ingredient traceability: where every ingredient came from, how it arrived, and what it cost.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

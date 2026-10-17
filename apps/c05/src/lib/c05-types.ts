@@ -148,6 +148,11 @@ export interface AgentReply {
   proposed_actions: ProposedAction[];
   grounded: boolean;
   disclaimer: string;
+  /** Who produced the answer: Gemini function calling, or the deterministic fallback. */
+  engine?: "gemini" | "rules";
+  model_id?: string | null;
+  latency_ms?: number | null;
+  fallback_reason?: string | null;
 }
 
 export interface QcReport {
@@ -172,4 +177,282 @@ export interface QcReport {
 
 export interface ApiError {
   detail: string | Array<{ loc: (string | number)[]; msg: string; type: string }>;
+}
+/* ------------------------------------------------------------ illness claims */
+
+export type Symptom =
+  | "nausea"
+  | "vomiting"
+  | "diarrhea"
+  | "abdominal_pain"
+  | "fever"
+  | "headache"
+  | "dizziness"
+  | "other";
+
+export type ReporterType = "parent" | "student" | "teacher" | "school_staff" | "health_worker" | "other";
+
+export type HealthPriority = "URGENT" | "HIGH" | "ROUTINE";
+
+export type IncidentStatus =
+  | "OPEN"
+  | "ESCALATED_HEALTH"
+  | "FIELD_VERIFICATION"
+  | "CLOSED_CONFIRMED"
+  | "CLOSED_UNSUBSTANTIATED";
+
+export interface ClaimSignal {
+  code: string;
+  kind: "integrity" | "corroborating";
+  weight: number;
+  summary: string;
+  detail: string;
+  claim_ids: string[];
+}
+
+export interface ClaimAiAssessment {
+  summary: string | null;
+  pattern_assessment?: "consistent_with_outbreak" | "mixed" | "inconsistent_with_records" | "insufficient_data";
+  observations?: Array<{ text: string; claim_ids: string[] }>;
+  verification_steps?: string[];
+  health_actions?: string[];
+  source: "model" | "none";
+  inference_status: InferenceStatus;
+  error: string | null;
+  model_id: string | null;
+  http_status: number | null;
+  latency_ms: number | null;
+  generated_at: string;
+}
+
+export interface ClaimDecision {
+  status: IncidentStatus;
+  comment: string;
+  actor: string;
+  at: string;
+  integrity_score: number;
+  health_priority: HealthPriority;
+}
+
+export interface ClaimIncident {
+  incident_id: string;
+  kitchen_id: string;
+  meal_date: string;
+  status: IncidentStatus;
+  integrity_score: number;
+  integrity_level: "low" | "medium" | "high";
+  health_priority: HealthPriority;
+  signals: ClaimSignal[];
+  corroborating: ClaimSignal[];
+  stats: {
+    claims: number;
+    affected_reported: number;
+    portions_served: number;
+    schools_claimed: string[];
+    schools_served: string[];
+    sought_medical: number;
+    hospitalized: number;
+    first_submitted: string | null;
+    last_submitted: string | null;
+  };
+  next_steps: string[];
+  ai: ClaimAiAssessment | null;
+  decisions: ClaimDecision[];
+}
+
+export interface ClaimRecord {
+  claim_id: string;
+  school_id: string;
+  reporter_type: ReporterType;
+  affected_count: number;
+  symptoms: Symptom[];
+  onset_at: string;
+  sought_medical: boolean;
+  hospitalized: boolean;
+  description: string;
+  channel: string;
+  submitted_at: string;
+  contact_ref: string;
+  photo: { ref: string } | null;
+}
+
+export interface ClaimIncidentDetail extends ClaimIncident {
+  services: Array<{ school_id: string; portions_served: number; served_at: string; batch_id: string }>;
+  claims: ClaimRecord[];
+  audit: AuditEvent[];
+}
+
+export interface ClaimSubmission {
+  kitchen_id: string;
+  school_id: string;
+  meal_date: string;
+  reporter_type: ReporterType;
+  contact: string;
+  affected_count: number;
+  symptoms: Symptom[];
+  onset_at: string;
+  sought_medical: boolean;
+  hospitalized: boolean;
+  description: string;
+  photo_base64?: string;
+}
+
+// ---------------------------------------------------------------- supply
+
+export type InsightCategory = "food_safety" | "stock" | "cost" | "logistics" | "supplier";
+export type Severity = "high" | "medium" | "low";
+
+export interface Supplier {
+  supplier_id: string;
+  name: string;
+  type: string;
+  location: string;
+  distance_km: number;
+  cold_chain: boolean;
+  certifications: string[];
+}
+
+export interface LotFlag {
+  code: string;
+  category: InsightCategory;
+  severity: Severity;
+  title: string;
+  detail: string;
+  action: string;
+}
+
+export interface SupplyLot {
+  lot_id: string;
+  kitchen_id: string;
+  ingredient: string;
+  label: string;
+  category: string;
+  chilled: boolean;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  reference_price: number;
+  dispatched_at: string;
+  received_at: string;
+  promised_at: string | null;
+  arrival_temp_c: number | null;
+  use_by: string;
+  receiving_status: "ACCEPTED" | "REJECTED";
+  receiving_note: string;
+  used_in: Array<{ meal_date: string; batch_id: string; qty: number }>;
+  transit_min: number;
+  stock_remaining: number;
+  supplier: Supplier;
+  flags: LotFlag[];
+  qty_used?: number;
+}
+
+export interface SupplyInsight extends LotFlag {
+  insight_id: string;
+  lot_ids: string[];
+  supplier_ids: string[];
+  meal_dates: string[];
+}
+
+export interface SupplierScore extends Supplier {
+  ingredients: string[];
+  lots: number;
+  rejected: number;
+  spend_idr: number;
+  avg_transit_min: number;
+  on_time_pct: number | null;
+  temp_breaches: number;
+  price_index: number;
+}
+
+export interface SupplyAi {
+  summary: string | null;
+  insights: Array<{
+    category: InsightCategory;
+    title: string;
+    detail: string;
+    action: string;
+    lot_ids: string[];
+    supplier_ids: string[];
+  }>;
+  source: "model" | "none";
+  inference_status: string;
+  error: string | null;
+  model_id: string | null;
+  latency_ms: number | null;
+  generated_at: string;
+}
+
+export interface SupplyOverview {
+  kitchen_id: string;
+  as_of: string;
+  kpis: {
+    window_days: number;
+    lots: number;
+    suppliers: number;
+    portions: number;
+    spend_idr: number;
+    cost_per_portion_idr: number | null;
+    avg_distance_km: number | null;
+    local_share_pct: number | null;
+    avg_perishable_transit_min: number | null;
+    on_time_pct: number | null;
+    stock_value_idr: number;
+    rejected_lots: number;
+  };
+  insights: SupplyInsight[];
+  suppliers: SupplierScore[];
+  stock: Array<{
+    ingredient: string;
+    label: string;
+    unit: string;
+    on_hand: number;
+    daily_use: number;
+    days_cover: number | null;
+    value_idr: number;
+    fresh_daily: boolean;
+  }>;
+  price_trends: Array<{
+    ingredient: string;
+    label: string;
+    unit: string;
+    reference: number;
+    latest: number;
+    change_pct: number;
+    points: Array<{ date: string; price: number }>;
+  }>;
+  lots: SupplyLot[];
+  reference_note: string;
+  ai: SupplyAi | null;
+}
+
+export interface SupplyTrace {
+  kitchen_id: string;
+  meal_date: string;
+  batch: { batch_id: string; portions: number } | null;
+  lots: SupplyLot[];
+  suppliers: number;
+  flags_total: number;
+  high_flags: number;
+  max_distance_km: number | null;
+}
+
+export interface SupplyCatalog {
+  suppliers: Supplier[];
+  ingredients: Array<{ ingredient: string; label: string; unit: string; chilled: boolean; ref: number }>;
+}
+
+export interface DeliveryInput {
+  role: Role;
+  kitchen_id: string;
+  ingredient: string;
+  supplier_id: string;
+  quantity: number;
+  unit_price: number;
+  dispatched_at: string;
+  received_at: string;
+  arrival_temp_c?: number | null;
+  use_by: string;
+  receiving_status: "ACCEPTED" | "REJECTED";
+  receiving_note?: string;
 }

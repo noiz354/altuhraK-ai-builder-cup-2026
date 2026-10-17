@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   // build toolchain, which shrinks the image and keeps build tooling out of
   // production.
   output: "standalone",
+  // Hide the floating dev-mode badge so local demos look like production.
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

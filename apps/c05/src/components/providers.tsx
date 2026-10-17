@@ -26,9 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   return (
     <Ctx.Provider value={value}>
-      <AppShell role={role} setRole={setRole} kitchenId={kitchenId} setKitchenId={setKitchenId}>
-        {children}
-      </AppShell>
+      <AppShell>{children}</AppShell>
     </Ctx.Provider>
   );
 }

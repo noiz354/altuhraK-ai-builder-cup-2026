@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from PIL import Image, ImageOps
 
 from shared_mvp.app import create_app as _shared_app
@@ -35,6 +35,9 @@ from shared_mvp.assets import root as asset_root
 from shared_mvp.contracts import Invalid
 from shared_mvp.store import Store
 
+import c05_agent
+import c05_claims
+import c05_supply
 import c05_gemini
 
 PID = 'C05'
@@ -48,9 +51,9 @@ MANIFEST = {
     'version': 1,
     'name': 'MBG Standard Tray A',
     'components': [
-        {'key': 'carbohydrate', 'label': 'Nasi / komponen karbohidrat'},
-        {'key': 'protein', 'label': 'Komponen protein'},
-        {'key': 'vegetable', 'label': 'Komponen Sayur'},
+        {'key': 'carbohydrate', 'label': 'Rice or other carbohydrate'},
+        {'key': 'protein', 'label': 'Protein (chicken, egg, tempeh, fish)'},
+        {'key': 'vegetable', 'label': 'Vegetables'},
     ],
     'note': 'Visual presence only. Never proves weight, nutrition or microbiological safety.',
 }
@@ -334,6 +337,20 @@ def create_app(db_path=None, provider=None):
         record['manifest'] = MANIFEST
         return record
 
+    @app.get('/api/inspections/{inspection_id}/image')
+    async def inspection_image(inspection_id: str, role: Role = 'ADMIN'):
+        """The normalized photo a reviewer is deciding on, scoped like the record."""
+        record = store.get('inspection', inspection_id)
+        if not record:
+            raise HTTPException(404, 'Unknown inspection')
+        if record['kitchen_id'] not in _scope(role):
+            raise HTTPException(403, 'Inspection is outside your kitchen scope')
+        _ensure_asset_local(record['image_id'])
+        path = asset_root(PID) / f"{record['image_id']}.png"
+        if not path.is_file():
+            raise HTTPException(404, 'Image is no longer stored')
+        return Response(path.read_bytes(), media_type='image/png', headers={'cache-control': 'private, max-age=300'})
+
     @app.post('/api/inspections/{inspection_id}/run')
     async def run_inspection(inspection_id: str, request: Request):
         payload = await body(request)
@@ -446,7 +463,12 @@ def create_app(db_path=None, provider=None):
         del use_ai  # the shared endpoint decides provider behaviour from its own config
         return await _start_shared_run(dataset_id, record['image_id'], mode, mode == 'ai')
 
-    @app.post('/api/inspections', status_code=201)
+    # ---------------------------------------------------------------- claims
+
+    agent_tool_list_claim_incidents = c05_claims.register(app, store, body, ROLES, _scope, _actor, _now)
+    agent_tool_supply_overview, agent_tool_trace_meal = c05_supply.register(app, store, body, ROLES, _scope, _actor, _now)
+    # Tests replace this with an async callable(request_body) -> Gemini-shaped response.
+    app.state.agent_model = None
 
     # ---------------------------------------------------------------- agent
 
@@ -485,6 +507,7 @@ def create_app(db_path=None, provider=None):
         'get_inspection': agent_tool_get_inspection,
         'list_inspections': agent_tool_list_inspections,
         'get_kitchen_summary': agent_tool_get_kitchen_summary,
+        'list_claim_incidents': agent_tool_list_claim_incidents,
     }
 
     @app.post('/api/agent/chat')
@@ -497,31 +520,25 @@ def create_app(db_path=None, provider=None):
         if not question:
             raise HTTPException(422, 'question is required')
         proposed: list[dict] = []
-        answer = ''
-        tool_calls: list[dict] = []
-        if re.search(r'\b(ringkasan|summary|kitchen|dapur)\b', question, re.I):
-            kitchen = next((k for k in _scope(role) if k.lower() in question.lower()), None) or sorted(_scope(role))[0]
-            result = agent_tool_get_kitchen_summary(role, kitchen)
-            tool_calls.append({'tool': 'get_kitchen_summary', 'args': {'kitchen_id': kitchen}})
-            if result['labels']:
-                spread = ', '.join(f"{k} {v}" for k, v in sorted(result['labels'].items()))
-            else:
-                spread = 'belum ada prediksi'
-            answer = (f"Dapur {kitchen}: {result['total']} inspeksi tercatat, "
-                      f"{result['pending_review']} menunggu review. "
-                      f"Distribusi label: {spread}.")
-        else:
-            target = payload.get('inspection_id')
-            result = agent_tool_list_inspections(role, payload.get('review_status'))
-            tool_calls.append({'tool': 'list_inspections', 'args': {}})
-            if target:
-                detail = agent_tool_get_inspection(role, target)
-                tool_calls.append({'tool': 'get_inspection', 'args': {'inspection_id': target}})
-                answer = (f"Inspeksi {target}: prediksi {detail.get('label') or 'belum ada'}, "
-                          f"status review {detail.get('review_status')}. Evidence: {detail.get('evidence_ids') or 'belum ada'}. "
-                          "Prediksi model adalah temuan visual dan bukan persetujuan QC.")
-            else:
-                answer = f"Ada {result['count']} inspeksi dalam cakupan Anda."
+        engine = {'engine': 'rules', 'model_id': None, 'latency_ms': None, 'fallback_reason': None}
+        try:
+            # Gemini picks the tools; every tool is bound to the caller's role,
+            # so scope is enforced by the functions, not by the prompt.
+            result = await c05_agent.run(question, {
+                'get_kitchen_summary': lambda kitchen_id: agent_tool_get_kitchen_summary(role, kitchen_id),
+                'list_inspections': lambda review_status=None: _clip_rows(
+                    agent_tool_list_inspections(role, review_status)),
+                'get_inspection': lambda inspection_id: agent_tool_get_inspection(role, inspection_id),
+                'list_claim_incidents': lambda: agent_tool_list_claim_incidents(role),
+                'get_claim_incident': lambda incident_id: agent_tool_get_claim_incident(role, incident_id),
+                'get_supply_overview': lambda kitchen_id: agent_tool_supply_overview(role, kitchen_id),
+                'trace_meal_ingredients': lambda kitchen_id, meal_date: agent_tool_trace_meal(role, kitchen_id, meal_date),
+            }, app.state.agent_model)
+            answer, tool_calls = result['answer'], result['tool_calls']
+            engine.update(engine='gemini', model_id=result['model_id'], latency_ms=result['latency_ms'])
+        except c05_agent.AgentUnavailable as exc:
+            engine['fallback_reason'] = exc.code
+            answer, tool_calls = _rule_answer(role, question, payload)
         if re.search(r'\b(uncertain|tidak pasti)\b', question, re.I):
             pending = agent_tool_list_inspections(role, 'REVIEW_PENDING')
             if pending['count']:
@@ -530,9 +547,107 @@ def create_app(db_path=None, provider=None):
                                  'inspection_ids': [i['inspection_id'] for i in pending['inspections'][:5]]})
         store.put('agent_session', uuid.uuid4().hex, {'role': role, 'question': question,
                                                      'answer': answer, 'tool_calls': tool_calls,
-                                                     'proposed': proposed, 'created_at': _now()})
+                                                     'proposed': proposed, **engine, 'created_at': _now()})
         return {'answer': answer, 'tool_calls': tool_calls, 'proposed_actions': proposed,
-                'grounded': True, 'disclaimer': 'Visual inspection only. Not proof of food safety.'}
+                'grounded': True, **engine, 'disclaimer': 'Visual inspection only. Not proof of food safety.'}
+
+    def _clip_rows(result: dict, limit: int = 50) -> dict:
+        return {**result, 'inspections': result['inspections'][:limit],
+                'truncated': len(result['inspections']) > limit}
+
+    def agent_tool_get_claim_incident(actor_role: Role, incident_id: str):
+        if actor_role not in {'SUPERVISOR', 'ADMIN'}:
+            return {'error': 'claims are visible to supervisors and admins only'}
+        view = app.state.claim_incident_view(str(incident_id))
+        if not view:
+            return {'error': 'Unknown incident'}
+        if view['kitchen_id'] not in _scope(actor_role):
+            return {'error': 'outside authorized kitchen scope'}
+        return {'incident_id': view['incident_id'], 'kitchen_id': view['kitchen_id'],
+                'meal_date': view['meal_date'], 'status': view['status'],
+                'health_priority': view['health_priority'], 'conflict_score': view['integrity_score'],
+                'stats': view['stats'],
+                'conflicts': [{'signal': c05_claims.SIGNAL_SHORT.get(s['code'], s['code']), 'detail': s['detail'],
+                               'reports': len(s['claim_ids'])} for s in view['signals']],
+                'supporting': [{'detail': s['detail'], 'reports': len(s['claim_ids'])} for s in view['corroborating']],
+                'required_next_steps': view['next_steps']}
+
+    def _rule_answer(role: Role, question: str, payload: dict) -> tuple[str, list[dict]]:
+        """Deterministic router used when Gemini is unavailable or its answer is rejected."""
+        answer = ''
+        tool_calls: list[dict] = []
+        if re.search(r'\b(suppl\w*|pemasok|bahan|ingredients?|harga|prices?|stok|stock|lots?|cold.?chain|'
+                     r'jarak|distance|asal|origin|trace|telusur)\b', question, re.I):
+            kitchen = next((k for k in _scope(role) if k.lower() in question.lower()), None) or sorted(_scope(role))[0]
+            if re.search(r'\b(trace|telusur\w*|yesterday|kemarin)\b', question, re.I):
+                day = (datetime.now(c05_supply.WIB).date() - c05_supply.timedelta(days=1)).isoformat()
+                found = re.search(r'\d{4}-\d{2}-\d{2}', question)
+                day = found.group(0) if found else day
+                result = agent_tool_trace_meal(role, kitchen, day)
+                tool_calls.append({'tool': 'trace_meal_ingredients', 'args': {'kitchen_id': kitchen, 'meal_date': day}})
+                lines = [f"{kitchen}, meals of {day}: {len(result['lots'])} ingredient lots from {result['suppliers']} suppliers."]
+                for lot in result['lots'][:8]:
+                    temp = f", arrived {lot['arrival_temp_c']}°C" if lot['arrival_temp_c'] is not None else ''
+                    problems = f" — {'; '.join(lot['flags'])}" if lot['flags'] else ''
+                    lines.append(f"• {lot['ingredient']}: {lot['supplier']} ({lot['origin']}, {lot['distance_km']} km), "
+                                 f"{lot['transit_min']} min on the road{temp}{problems}")
+                return '\n'.join(lines), tool_calls
+            result = agent_tool_supply_overview(role, kitchen)
+            tool_calls.append({'tool': 'get_supply_overview', 'args': {'kitchen_id': kitchen}})
+            k = result['kpis']
+            lines = [f"{kitchen}, last {k['window_days']} days: {k['lots']} deliveries from {k['suppliers']} suppliers, "
+                     f"ingredient cost about {c05_supply.idr(k['cost_per_portion_idr'] or 0)} per portion, "
+                     f"average supplier distance {k['avg_distance_km']} km."]
+            for i in result['top_insights'][:5]:
+                lines.append(f"• [{i['severity']}] {i['title']}. {i['action']}")
+            lines.append('Checks cover temperature, transit, use-by, stock and price; they do not prove food is safe.')
+            return '\n'.join(lines), tool_calls
+        if re.search(r'\b(claims?|klaim|keracunan|poisoning|incidents?|insiden)\b', question, re.I):
+            result = agent_tool_list_claim_incidents(role)
+            tool_calls.append({'tool': 'list_claim_incidents', 'args': {}})
+            if 'error' in result:
+                answer = 'Illness claims are visible to supervisors and admins only.'
+            elif not result['incidents']:
+                answer = 'No illness claims are recorded in your kitchen scope.'
+            else:
+                def plural(n, word):
+                    return f"{n} {word}{'' if n == 1 else 's'}"
+                rows = result['incidents']
+                lines = [f"{plural(len(rows), 'incident')} in your kitchens:"]
+                for i in rows:
+                    conflicts = ', '.join(c05_claims.SIGNAL_SHORT.get(s, s) for s in i['signals'])
+                    lines.append(
+                        f"• {i['kitchen_id']}, meals of {i['meal_date']} — {plural(i['claims'], 'report')}. "
+                        f"Health priority {i['health_priority']}. "
+                        + (f"Conflicts {i['integrity_score']}/100: {conflicts}. " if conflicts
+                           else 'No conflicts with delivery records. ')
+                        + f"Status: {c05_claims.STATUS_TEXT.get(i['status'], i['status'])}.")
+                lines.append('Conflicts decide what to verify first; they never justify dismissing a reported illness.')
+                answer = '\n'.join(lines)
+        elif re.search(r'\b(ringkasan|summary|kitchen|dapur)\b', question, re.I):
+            kitchen = next((k for k in _scope(role) if k.lower() in question.lower()), None) or sorted(_scope(role))[0]
+            result = agent_tool_get_kitchen_summary(role, kitchen)
+            tool_calls.append({'tool': 'get_kitchen_summary', 'args': {'kitchen_id': kitchen}})
+            if result['labels']:
+                spread = ', '.join(f"{k} {v}" for k, v in sorted(result['labels'].items()))
+            else:
+                spread = 'no predictions yet'
+            answer = (f"{kitchen}: {result['total']} inspections recorded, "
+                      f"{result['pending_review']} waiting for review. "
+                      f"Labels: {spread}.")
+        else:
+            target = payload.get('inspection_id')
+            result = agent_tool_list_inspections(role, payload.get('review_status'))
+            tool_calls.append({'tool': 'list_inspections', 'args': {}})
+            if target:
+                detail = agent_tool_get_inspection(role, target)
+                tool_calls.append({'tool': 'get_inspection', 'args': {'inspection_id': target}})
+                answer = (f"Inspection {target}: prediction {detail.get('label') or 'none yet'}, "
+                          f"review status {detail.get('review_status')}. Evidence: {detail.get('evidence_ids') or 'none yet'}. "
+                          "A model prediction is a visual finding, not a QC approval.")
+            else:
+                answer = f"There are {result['count']} inspections in your scope."
+        return answer, tool_calls
 
     @app.post('/api/agent/actions/{action_id}/confirm')
     async def confirm_action(action_id: str, request: Request):

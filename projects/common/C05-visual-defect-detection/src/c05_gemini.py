@@ -31,6 +31,7 @@ Provider = Literal["auto", "gemini-api", "vertex"]
 
 DEFAULT_TIMEOUT = 12.0
 MODEL_RE = re.compile(r"[A-Za-z0-9._-]+")
+ENDPOINT_RE = re.compile(r"projects/[\w-]+/locations/(?P<region>[a-z0-9-]+)/endpoints/\d+")
 
 
 @dataclass
@@ -200,6 +201,16 @@ def auth_headers(cfg: GeminiConfig, model_name: str | None = None) -> tuple[str,
         return url, {"x-goog-api-key": key}, "api-key"
 
     project = cfg.project or ""
+    endpoint = (os.environ.get("C05_GEMINI_ENDPOINT") or "").strip()
+    if endpoint:
+        # A tuned Gemini model is served from its own regional endpoint resource,
+        # projects/{p}/locations/{region}/endpoints/{id}, not the publisher path.
+        match = ENDPOINT_RE.fullmatch(endpoint)
+        if not match:
+            raise ProviderNotConfigured(
+                "C05_GEMINI_ENDPOINT must be projects/{project}/locations/{region}/endpoints/{id}")
+        url = f"https://{match['region']}-aiplatform.googleapis.com/v1/{endpoint}:generateContent"
+        return url, {"Authorization": f"Bearer {_adc_token(cfg)}"}, "adc-bearer"
     # `global` is the endpoint that serves publisher models on projects that have no
     # regional publisher catalogue. Verified working on gen-lang-client-0170811162.
     host = "aiplatform.googleapis.com" if cfg.location == "global" else f"{cfg.location}-aiplatform.googleapis.com"

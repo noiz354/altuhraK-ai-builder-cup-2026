@@ -1,7 +1,12 @@
 import type {
   AgentReply,
   ApiError,
+  ClaimIncident,
+  ClaimIncidentDetail,
+  ClaimSubmission,
+  DeliveryInput,
   Disposition,
+  IncidentStatus,
   Inspection,
   InspectionDetail,
   InspectionSummary,
@@ -9,6 +14,10 @@ import type {
   Overview,
   QcReport,
   Role,
+  SupplyCatalog,
+  SupplyLot,
+  SupplyOverview,
+  SupplyTrace,
 } from "./c05-types";
 
 /**
@@ -127,5 +136,60 @@ export const c05 = {
     call<Record<string, unknown>>(`/api/agent/actions/${actionId}/confirm`, {
       method: "POST",
       body: JSON.stringify({ role }),
+    }),
+
+  submitClaim: (body: ClaimSubmission) =>
+    call<{ claim_id: string; incident_id: string; received_at: string; message: string }>("/api/claims", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  claimIncidents: (role: Role, kitchenId?: string) => {
+    const qs = new URLSearchParams({ role });
+    if (kitchenId) qs.set("kitchen_id", kitchenId);
+    return call<{ incidents: ClaimIncident[]; count: number }>(`/api/claims/incidents?${qs.toString()}`);
+  },
+
+  claimIncident: (id: string, role: Role) =>
+    call<ClaimIncidentDetail>(`/api/claims/incidents/${encodeURIComponent(id)}?role=${role}`),
+
+  assessIncident: (id: string, role: Role) =>
+    call<ClaimIncidentDetail>(`/api/claims/incidents/${encodeURIComponent(id)}/assess`, {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
+
+  decideIncident: (
+    id: string,
+    body: { role: Role; status: IncidentStatus; comment: string; health_followup_confirmed?: boolean },
+  ) =>
+    call<ClaimIncidentDetail>(`/api/claims/incidents/${encodeURIComponent(id)}/decision`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  seedClaims: (role: Role) =>
+    call<{ service_records: number; claims_loaded: number }>("/api/claims/demo-seed", {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
+
+  supplyOverview: (role: Role, kitchenId: string) =>
+    call<SupplyOverview>(`/api/supply/overview?role=${role}&kitchen_id=${encodeURIComponent(kitchenId)}`),
+
+  supplyTrace: (role: Role, kitchenId: string, mealDate: string) =>
+    call<SupplyTrace>(
+      `/api/supply/trace?role=${role}&kitchen_id=${encodeURIComponent(kitchenId)}&meal_date=${encodeURIComponent(mealDate)}`,
+    ),
+
+  supplyCatalog: (role: Role) => call<SupplyCatalog>(`/api/supply/catalog?role=${role}`),
+
+  recordDelivery: (body: DeliveryInput) =>
+    call<SupplyLot>("/api/supply/lots", { method: "POST", body: JSON.stringify(body) }),
+
+  supplyInsights: (role: Role, kitchenId: string) =>
+    call<SupplyOverview>("/api/supply/insights", {
+      method: "POST",
+      body: JSON.stringify({ role, kitchen_id: kitchenId }),
     }),
 };

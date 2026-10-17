@@ -100,35 +100,29 @@ export function PredictionBadge({ label }: { label: Label | string }) {
 }
 
 /**
- * Model predictions never share a visual treatment with human decisions.
- * This block is always outlined amber and always labelled UNVERIFIED.
+ * Automatic results never share a visual treatment with human decisions.
+ * This block is always outlined amber and always labelled as not yet reviewed.
  */
 export function PredictionBlock({
   label,
   regions,
   evidenceIds,
-  modelVersion,
-  latencyMs,
 }: {
   label: string | null;
   regions: Array<{ x: number; y: number; w: number; h: number }>;
   evidenceIds: string[];
-  modelVersion: string | null;
-  latencyMs?: number;
 }) {
   return (
     <div
       className="rounded-[var(--r-panel)] border border-[var(--review)] bg-transparent p-4"
-      aria-label="AI prediction, unverified"
+      aria-label="Automatic check result, not yet reviewed"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="label text-[var(--review)]">AI PREDICTION — UNVERIFIED</span>
-        {label ? <PredictionBadge label={label} /> : <span className="meta">no prediction</span>}
+        <span className="label text-[var(--review)]">CHECK RESULT — NOT YET REVIEWED</span>
+        {label ? <PredictionBadge label={label} /> : <span className="meta">no result yet</span>}
       </div>
       <p className="meta mt-2">
-        confidence_score: null (NOT_CALIBRATED) · {regions.length} region(s) ·{" "}
-        {modelVersion ?? "baseline-local-v1"}
-        {typeof latencyMs === "number" ? ` · ${latencyMs} ms` : ""}
+        {regions.length} marked area(s) · a supervisor confirms every result
       </p>
       {evidenceIds.length > 0 ? (
         <ul className="mono mt-2 space-y-0.5 break-all text-[var(--ink-3)]">

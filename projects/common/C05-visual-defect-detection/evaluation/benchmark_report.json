@@ -1,0 +1,163 @@
+{
+  "generated_at": "2026-10-16T15:23:10.136805+00:00",
+  "environment": "in-process ASGI, SQLite, Python 3.13.0, win32",
+  "api_latency_offline": {
+    "create_inspection": {
+      "n": 30,
+      "p50_ms": 35.4,
+      "p95_ms": 113.1,
+      "mean_ms": 43.2,
+      "max_ms": 134.6
+    },
+    "run_inspection_baseline": {
+      "n": 30,
+      "p50_ms": 37.7,
+      "p95_ms": 48.9,
+      "mean_ms": 38.1,
+      "max_ms": 49.3
+    },
+    "admin_overview": {
+      "n": 30,
+      "p50_ms": 52.2,
+      "p95_ms": 66.9,
+      "mean_ms": 54.0,
+      "max_ms": 80.4
+    },
+    "list_inspections": {
+      "n": 30,
+      "p50_ms": 27.8,
+      "p95_ms": 94.2,
+      "mean_ms": 39.9,
+      "max_ms": 118.4
+    },
+    "submit_claim": {
+      "n": 30,
+      "p50_ms": 16.1,
+      "p95_ms": 45.7,
+      "mean_ms": 19.7,
+      "max_ms": 65.4
+    },
+    "list_claim_incidents": {
+      "n": 30,
+      "p50_ms": 93.6,
+      "p95_ms": 257.0,
+      "mean_ms": 112.0,
+      "max_ms": 329.5
+    },
+    "incident_detail_35_claims": {
+      "n": 30,
+      "p50_ms": 93.4,
+      "p95_ms": 193.9,
+      "mean_ms": 112.2,
+      "max_ms": 326.5
+    },
+    "agent_chat": {
+      "n": 30,
+      "p50_ms": 170.2,
+      "p95_ms": 343.4,
+      "mean_ms": 195.4,
+      "max_ms": 523.5
+    }
+  },
+  "claim_triage_scaling": [
+    {
+      "claims": 50,
+      "assess_ms": 8.3,
+      "coordinated_flagged": "15/15",
+      "genuine_flagged_any": "1/35",
+      "genuine_flagged_strong": "0/35",
+      "signals": [
+        "DUPLICATE_CONTACT",
+        "SUBMISSION_BURST",
+        "TEMPLATED_TEXT"
+      ]
+    },
+    {
+      "claims": 200,
+      "assess_ms": 65.6,
+      "coordinated_flagged": "60/60",
+      "genuine_flagged_any": "4/140",
+      "genuine_flagged_strong": "0/140",
+      "signals": [
+        "CLAIMS_EXCEED_PORTIONS",
+        "DUPLICATE_CONTACT",
+        "SUBMISSION_BURST",
+        "TEMPLATED_TEXT"
+      ]
+    },
+    {
+      "claims": 500,
+      "assess_ms": 226.3,
+      "coordinated_flagged": "150/150",
+      "genuine_flagged_any": "7/350",
+      "genuine_flagged_strong": "0/350",
+      "signals": [
+        "CLAIMS_EXCEED_PORTIONS",
+        "DUPLICATE_CONTACT",
+        "SUBMISSION_BURST",
+        "TEMPLATED_TEXT"
+      ]
+    },
+    {
+      "claims": 1000,
+      "assess_ms": 2164.7,
+      "coordinated_flagged": "300/300",
+      "genuine_flagged_any": "25/700",
+      "genuine_flagged_strong": "0/700",
+      "signals": [
+        "CLAIMS_EXCEED_PORTIONS",
+        "DUPLICATE_CONTACT",
+        "SUBMISSION_BURST",
+        "TEMPLATED_TEXT"
+      ]
+    }
+  ],
+  "demo_scenario_detection": [
+    {
+      "incident": "INC-KITCHEN-A-2026-10-14",
+      "claims": 35,
+      "integrity_score": 100,
+      "health_priority": "URGENT",
+      "coordinated_flagged": "32/32",
+      "genuine_flagged": "0/3"
+    },
+    {
+      "incident": "INC-KITCHEN-A-2026-10-15",
+      "claims": 11,
+      "integrity_score": 0,
+      "health_priority": "URGENT",
+      "coordinated_flagged": "0/0",
+      "genuine_flagged": "0/11"
+    },
+    {
+      "incident": "INC-KITCHEN-B-2026-10-13",
+      "claims": 1,
+      "integrity_score": 0,
+      "health_priority": "ROUTINE",
+      "coordinated_flagged": "0/0",
+      "genuine_flagged": "0/1"
+    }
+  ],
+  "live_gemini_evidence": {
+    "source": "docs/c05-deploy/DEPLOYMENT_EVIDENCE.md",
+    "model": "gemini-2.5-flash (Vertex AI, global endpoint, thinking off)",
+    "production_inference_ms": 7514,
+    "staging_inference_s_range": [
+      7,
+      8
+    ],
+    "input_tokens": [
+      2173,
+      2179
+    ],
+    "output_tokens": [
+      255,
+      260
+    ],
+    "thinking_off_vs_on_s": [
+      2.0,
+      10.9
+    ],
+    "browser_e2e_checks": "18/18 at 390px and 1440px"
+  }
+}

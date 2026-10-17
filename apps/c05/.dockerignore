@@ -32,3 +32,6 @@ qa-evidence
 .DS_Store
 .idea
 .vscode
+
+# Local demo recordings and screenshots
+demo-output

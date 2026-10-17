@@ -4,7 +4,7 @@
   "failures": 0,
   "errors": 0,
   "successful": true,
-  "duration_s": 0.62,
+  "duration_s": 3.44,
   "scope": "local synthetic baseline/API/UI assets/review/export/provider adapter",
   "live_model_tested": false,
   "cloud_deployed": false,

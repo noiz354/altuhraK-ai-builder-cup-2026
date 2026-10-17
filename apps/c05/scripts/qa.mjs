@@ -68,7 +68,7 @@ async function newPage(width, height) {
   await page.waitForSelector("text=Expected meal components");
 
   const manifestLoaded = await page
-    .locator("text=Nasi / komponen karbohidrat")
+    .locator("text=Rice or other carbohydrate")
     .first()
     .isVisible()
     .catch(() => false);
@@ -85,21 +85,21 @@ async function newPage(width, height) {
   const preview = await page.locator("img[alt='Captured meal preview']").isVisible();
   record("crew: image preview after validation", preview);
 
-  await page.getByRole("button", { name: "Gemini multimodal" }).click();
   await page.getByRole("button", { name: "Run inspection" }).click();
   await page
-    .locator("text=AI PREDICTION — UNVERIFIED")
+    .locator("text=CHECK RESULT — NOT YET REVIEWED")
     .waitFor({ timeout: 45000 })
     .catch(() => null);
   const resultShown = await page
-    .locator("text=AI PREDICTION — UNVERIFIED")
+    .locator("text=CHECK RESULT — NOT YET REVIEWED")
     .first()
     .isVisible()
     .catch(() => false);
   record("crew: prediction block rendered", resultShown);
 
-  const confidence = await page.locator("text=NOT_CALIBRATED").first().isVisible().catch(() => false);
-  record("crew: confidence stays NOT_CALIBRATED", confidence);
+  // The AI runs behind the scenes; the page shows results, never model names.
+  const aiWording = await page.locator("main").getByText(/gemini|\bAI\b|model|inference/i).count();
+  record("crew: no AI or model wording on the page", aiWording === 0);
 
   await page.screenshot({ path: `${OUT}/crew-390-viewport.png` });
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -137,7 +137,7 @@ async function newPage(width, height) {
 
   await page.getByRole("button", { name: "Open" }).first().click();
   await page.waitForSelector("text=Reviewer controls", { timeout: 10000 });
-  const evidenceVisible = await page.locator("text=AI PREDICTION — UNVERIFIED").first().isVisible();
+  const evidenceVisible = await page.locator("text=CHECK RESULT — NOT YET REVIEWED").first().isVisible();
   record("admin: evidence pane with unverified treatment", evidenceVisible);
 
   await page.getByRole("button", { name: "ACCEPT", exact: true }).click();
@@ -153,23 +153,18 @@ async function newPage(width, height) {
   await context.close();
 }
 
-// -------------------------------------------------------------- agent 1440
+// -------------------------------------------------------------- supply 1440
 {
   const { context, page } = await newPage(1440, 1100);
-  await page.goto(`${BASE}/agent`, { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Rangkum inspeksi dapur ini" }).click();
-  await page.waitForSelector("text=Tool execution", { timeout: 15000 }).catch(() => null);
-  // Let motion settle before asserting or capturing, so evidence is not mid-animation.
-  await page.waitForTimeout(600);
-  const rawDict = await page.locator("text=/\{'(meal_complete|uncertain|missing_component)'/").count();
-  record("agent: no raw python dict in the answer", rawDict === 0);
-  const toolShown = await page.locator("text=get_kitchen_summary").first().isVisible().catch(() => false);
-  record("agent: grounded tool call visible", toolShown);
-
-  const disclaimer = await page.locator("text=/Not proof of food safety/i").first().isVisible().catch(() => false);
-  record("agent: safety disclaimer present", disclaimer);
-
-  await page.screenshot({ path: `${OUT}/agent-1440.png`, fullPage: true });
+  await page.goto(`${BASE}/supply`, { waitUntil: "networkidle" });
+  await page.waitForSelector("text=Trace a meal back", { timeout: 15000 });
+  const checks = await page.locator("text=/Automatic checks \(\d+\)/").isVisible().catch(() => false);
+  record("supply: automatic checks listed", checks);
+  const traced = await page.locator("text=/lots? from \d+ suppliers?/").first().isVisible().catch(() => false);
+  record("supply: meal trace shows lots and suppliers", traced);
+  const aiWording = await page.locator("main").getByText(/gemini|\bAI\b|model|inference/i).count();
+  record("supply: no AI or model wording on the page", aiWording === 0);
+  await page.screenshot({ path: `${OUT}/supply-1440.png`, fullPage: true });
   await context.close();
 }
 

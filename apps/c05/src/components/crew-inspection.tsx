@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SAMPLE_PHOTOS } from "@/components/photo-guide";
 import { c05 } from "@/lib/c05-client";
 import type { AuditEvent, Inspection, Manifest, Role } from "@/lib/c05-types";
 import { ExecutionBadge, PredictionBlock } from "@/components/c05-status";
@@ -27,7 +28,6 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [shift, setShift] = useState("SHIFT-AM");
   const [batch, setBatch] = useState("BATCH-DEMO");
-  const [mode, setMode] = useState<"baseline" | "ai">("baseline");
   const [file, setFile] = useState<{ name: string; mime: string; b64: string; width: number; height: number; size: number } | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [message, setMessage] = useState("");
@@ -45,8 +45,8 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
       .manifest(role)
       .then((r) => setManifest(r.manifests[0] ?? null))
       .catch((e: Error) => setMessage(e.message));
-    return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Release the camera on unmount; no state update is needed then.
+    return () => streamRef.current?.getTracks().forEach((t) => t.stop());
   }, [role]);
 
   function stopCamera() {
@@ -145,6 +145,32 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
     reader.readAsDataURL(picked);
   }
 
+  // Prototype helper: load one of the example photos as if it had been captured.
+  async function loadSample(src: string, name: string) {
+    try {
+      const blob = await (await fetch(src)).blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const img = new Image();
+      img.onload = () =>
+        adopt({
+          name: `${name}.jpg`,
+          mime: blob.type || "image/jpeg",
+          b64: dataUrl.split(",")[1] ?? "",
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          size: blob.size,
+        });
+      img.src = dataUrl;
+    } catch {
+      setMessage("The sample photo could not be loaded.");
+    }
+  }
+
   async function submit() {
     if (!file || !manifest) return;
     idempotencyKeyRef.current ??=
@@ -165,7 +191,7 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
         idempotency_key: idempotencyKeyRef.current,
       });
       setStage("running");
-      const result = await c05.run(created.inspection_id, role, mode);
+      const result = await c05.run(created.inspection_id, role, "ai");
       setInspection(result);
       setStage("done");
       try {
@@ -235,6 +261,9 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
 
       <section className="panel p-4">
         <h3 className="label">1 · Capture</h3>
+        <p className="mt-1 text-[13px] leading-[18px] text-[var(--ink-2)]">
+          Whole tray in frame, good light, nothing covering the food.
+        </p>
         <input
           ref={fileInputRef}
           type="file"
@@ -250,6 +279,24 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
           <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-12 px-5">
             Choose file
           </Button>
+        </div>
+
+        <div className="mt-3">
+          <p className="meta">No camera nearby? Try a sample photo:</p>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {SAMPLE_PHOTOS.map((s) => (
+              <button
+                key={s.src}
+                type="button"
+                onClick={() => void loadSample(s.src, s.name)}
+                className="flex flex-col gap-1 rounded-[var(--r-control)] border border-[var(--hairline)] p-1.5 text-left hover:bg-[var(--sunken)]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.src} alt="" className="aspect-[4/3] w-full rounded-[4px] object-cover" />
+                <span className="text-[12px] leading-[16px] font-medium">{s.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {camera ? (
@@ -282,28 +329,8 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
       </section>
 
       <section className="panel p-4">
-        <h3 className="label">2 · Run inspection</h3>
-        <div className="mt-3 grid gap-2">
-          <Button
-            variant={mode === "baseline" ? "default" : "outline"}
-            onClick={() => setMode("baseline")}
-            className="h-12 justify-start"
-            aria-pressed={mode === "baseline"}
-          >
-            Deterministic baseline
-          </Button>
-          <Button
-            variant={mode === "ai" ? "default" : "outline"}
-            onClick={() => setMode("ai")}
-            className="h-12 justify-start"
-            aria-pressed={mode === "ai"}
-          >
-            Gemini multimodal
-          </Button>
-        </div>
-        <p className="meta mt-2">
-          One request per run. AI output is validated server-side and never auto-approved.
-        </p>
+        <h3 className="label">2 · Run the check</h3>
+        <p className="meta mt-1">The tray is compared with today&rsquo;s meal list. A supervisor confirms every result.</p>
         <Button type="button" onClick={submit} disabled={!file || !manifest || busy} className="mt-3 h-12 w-full">
           {stage === "running" ? "Inspecting…" : stage === "submitting" ? "Uploading…" : "Run inspection"}
         </Button>
@@ -334,14 +361,12 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
                 label={inspection.prediction?.predicted_label ?? null}
                 regions={inspection.prediction?.regions ?? []}
                 evidenceIds={inspection.evidence_ids}
-                modelVersion={inspection.model_version}
-                latencyMs={inspection.latency_ms}
               />
               {inspection.execution_status === "FAILED" ? (
                 <Alert variant="destructive" className="mt-3">
-                  <AlertTitle>Inference failed</AlertTitle>
+                  <AlertTitle>The check could not finish</AlertTitle>
                   <AlertDescription>
-                    Baseline retained. This inspection stays UNVERIFIED. Recapture the image or complete manual QC.
+                    This inspection stays unverified. Retake the photo or check the tray by hand.
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -352,7 +377,6 @@ export function CrewInspection({ role, kitchenId }: { role: Role; kitchenId: str
                 <li>analysis_sha256: {inspection.analysis_sha256}</li>
                 <li>manifest: {inspection.manifest_id} v{inspection.manifest_version}</li>
                 <li>schema: {inspection.schema_version}</li>
-                <li>prompt: {inspection.prompt_version}</li>
               </ul>
             </TabsContent>
             <TabsContent value="audit" className="mt-3">

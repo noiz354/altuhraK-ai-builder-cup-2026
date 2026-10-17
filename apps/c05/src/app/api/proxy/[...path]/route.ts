@@ -30,8 +30,9 @@ async function forward(
       body,
       cache: "no-store",
     });
-    const text = await upstream.text();
-    return new NextResponse(text, {
+    // Pass bytes through untouched so binary responses (inspection photos) survive.
+    const payload = await upstream.arrayBuffer();
+    return new NextResponse(payload, {
       status: upstream.status,
       headers: {
         "content-type": upstream.headers.get("content-type") ?? "application/json",
