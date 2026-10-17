@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meal QC — Motion Design (altuhraK)</title>
+<style>
+  :root {
+    --bg: #07070c;
+    --fg: #f0f0f5;
+    --muted: #7a7a8a;
+    --accent: #2f6fed;
+    --accent2: #2f855a;
+    --defect: #c0392b;
+    --review: #b7791f;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: -apple-system, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
+  .stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  .slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(1.04); transition: opacity 1.2s cubic-bezier(.2,.8,.2,1), transform 1.2s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+  .slide.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .slide img { max-width: 82vw; max-height: 58vh; border-radius: 16px; box-shadow: 0 40px 120px rgba(0,0,0,.6), 0 0 0 1px var(--border); object-fit: contain; }
+  .caption { margin-top: 24px; text-align: center; max-width: 780px; }
+  .caption h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .caption p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .tag { display: inline-block; font-size: 11px; font-family: "SF Mono", ui-monospace, monospace; color: var(--accent); background: rgba(47,111,237,.12); border: 1px solid rgba(47,111,237,.3); padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .progress { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.2); transition: all .4s; cursor: pointer; }
+  .dot.active { background: var(--accent); width: 24px; border-radius: 4px; }
+  .counter { position: fixed; top: 24px; right: 32px; font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; color: var(--muted); z-index: 10; }
+  .title { position: fixed; top: 24px; left: 32px; font-size: 13px; font-weight: 600; letter-spacing: .05em; color: var(--muted); z-index: 10; }
+  .title span { color: var(--fg); }
+  .controls { position: fixed; bottom: 24px; right: 32px; display: flex; gap: 8px; z-index: 10; }
+  .btn { background: var(--surface); border: 1px solid var(--border); color: var(--fg); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; backdrop-filter: blur(8px); transition: background .2s; }
+  .btn:hover { background: rgba(255,255,255,.08); }
+  .intro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, #1a1a2e 0%, #07070c 70%); }
+  .intro h1 { font-size: 56px; font-weight: 700; letter-spacing: -0.04em; background: linear-gradient(135deg, #fff 0%, #8a8a9a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 16px; }
+  .intro p { font-size: 18px; color: var(--muted); max-width: 680px; text-align: center; line-height: 1.6; }
+  .intro .badge { margin-bottom: 24px; }
+  .intro .start { margin-top: 40px; padding: 14px 32px; font-size: 15px; font-weight: 500; background: var(--accent); border: none; color: #fff; border-radius: 10px; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+  .intro .start:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(47,111,237,.4); }
+  .glow { position: absolute; width: 600px; height: 600px; border-radius: 50%; filter: blur(120px); opacity: .15; pointer-events: none; }
+  .glow.a { background: var(--accent); top: -200px; left: -200px; }
+  .glow.b { background: var(--accent2); bottom: -200px; right: -200px; }
+  .metric { display: inline-flex; gap: 6px; align-items: center; font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; margin: 0 4px; }
+  .metric b { color: var(--fg); }
+  .slide .metrics { margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  @keyframes pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
+  .live { animation: pulse 2s ease-in-out infinite; }
+  .flow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .flow span { font-size: 12px; font-family: "SF Mono", ui-monospace, monospace; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; }
+  .flow span b { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="glow a"></div>
+  <div class="glow b"></div>
+
+  <div class="title">Meal QC <span>altuhraK</span> · Motion Design</div>
+  <div class="counter" id="counter">01 / 10</div>
+
+  <!-- Intro -->
+  <div class="slide active" data-idx="0">
+    <div class="intro">
+      <span class="tag badge live">● Live on Cloud Run</span>
+      <h1>Meal QC</h1>
+      <p>Kontrol kualitas makanan dan pelacakan bahan untuk program MBG — dari foto tray hingga laporan sakit, dengan AI yang investigate, bukan sekadar dashboard.</p>
+      <div class="metrics" style="margin-top:24px">
+        <span class="metric"><b>8</b> halaman</span>
+        <span class="metric"><b>4</b> jalur fitur</span>
+        <span class="metric"><b>Vertex AI</b> Gemini</span>
+        <span class="metric"><b>Cloud Run</b> asia-southeast2</span>
+      </div>
+      <button class="start" onclick="start()">Mulai presentasi →</button>
+    </div>
+  </div>
+
+  <!-- Slide 1: Landing -->
+  <div class="slide" data-idx="1">
+    <img src="01-landing.png" alt="Landing">
+    <div class="caption">
+      <span class="tag">01 · Landing</span>
+      <h2>Meal QC — Kontrol Kualitas Makanan</h2>
+      <p>Halaman utama dengan 4 jalur: Crew (capture tray), Guide (panduan), Supply (pelacakan bahan), Claims (laporan sakit). Semua traffic melewati proxy server-side.</p>
+      <div class="flow">
+        <span><b>/crew</b> capture</span>
+        <span><b>/admin</b> review</span>
+        <span><b>/guide</b> panduan</span>
+        <span><b>/supply</b> bahan</span>
+        <span><b>/claims</b> laporan</span>
+        <span><b>/report</b> rekap</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 2: Crew mobile -->
+  <div class="slide" data-idx="2">
+    <img src="02-crew-mobile.png" alt="Crew mobile">
+    <div class="caption">
+      <span class="tag">02 · Crew (mobile 390px)</span>
+      <h2>Capture tray di lapangan</h2>
+      <p>Kamera belakang, canvas grab, validasi 320×240 minimum. Mode baseline vs AI (Gemini multimodal). Idempotency key per layar. AI hanya prediksi — bukan label, bukan persetujuan QC.</p>
+      <div class="metrics">
+        <span class="metric">getUserMedia facingMode: environment</span>
+        <span class="metric">confidence_score: <b>null</b></span>
+        <span class="metric">manifest MBG-STD-01 v1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Admin desktop -->
+  <div class="slide" data-idx="3">
+    <img src="03-admin.png" alt="Admin desktop">
+    <div class="caption">
+      <span class="tag">03 · Admin (desktop)</span>
+      <h2>Review queue + agent dalam satu layar</h2>
+      <p>6 KPI tile, strip provenance (Model vs Baseline), filter chip, tabel review. AI prediction ditampilkan UNVERIFIED sampai human approve. Crew tidak bisa approve — enforce di backend.</p>
+      <div class="metrics">
+        <span class="metric">CREW < SUPERVISOR < ADMIN</span>
+        <span class="metric">approval immutable (409)</span>
+        <span class="metric">18/18 browser QA</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: Agent -->
+  <div class="slide" data-idx="4">
+    <img src="04-agent.png" alt="Agent desktop">
+    <div class="caption">
+      <span class="tag">04 · Agent (investigator)</span>
+      <h2>Agent yang investigate, bukan chat box</h2>
+      <p>POST /api/agent/investigate menjalankan tool calls: get_model_summary, get_gold_status, list_inspections, propose_action. Setiap run disimpan ke agent_run collection dengan reasoning trace + cost. Proposed action butuh /confirm.</p>
+      <div class="metrics">
+        <span class="metric">tool_calls logged</span>
+        <span class="metric">cost per run tracked</span>
+        <span class="metric">human approval gate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Guide -->
+  <div class="slide" data-idx="5">
+    <img src="05-guide.png" alt="Guide">
+    <div class="caption">
+      <span class="tag">05 · Guide</span>
+      <h2>Panduan operasional</h2>
+      <p>Dokumentasi in-app untuk crew dan supervisor. Menjelaskan alur capture → review → report, serta batasan scope (visual presence only, bukan bukti keamanan pangan).</p>
+      <div class="metrics">
+        <span class="metric">in-app documentation</span>
+        <span class="metric">scope claims enforced</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Supply -->
+  <div class="slide" data-idx="6">
+    <img src="06-supply.png" alt="Supply">
+    <div class="caption">
+      <span class="tag">06 · Supply (pelacakan bahan)</span>
+      <h2>Lot bahan: supplier, asal, suhu, harga</h2>
+      <p>Setiap lot bahan mencatat supplier, origin, travel time, arrival temperature, price. Automatic checks flag warm deliveries, expiring stock, overpricing. Trace dari makanan sakit ke supplier.</p>
+      <div class="metrics">
+        <span class="metric">lot tracking</span>
+        <span class="metric">temperature check</span>
+        <span class="metric">price anomaly</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: Claims -->
+  <div class="slide" data-idx="7">
+    <img src="07-claims.png" alt="Claims">
+    <div class="caption">
+      <span class="tag">07 · Claims (laporan sakit)</span>
+      <h2>Laporan sakit dari form publik</h2>
+      <p>Form publik untuk melaporkan sakit setelah makan. Dicek terhadap delivery records, discreening fraud. Gemini menjelaskan pola tapi tidak mengubah skor atau menutup kasus.</p>
+      <div class="metrics">
+        <span class="metric">public form</span>
+        <span class="metric">fraud screening</span>
+        <span class="metric">incident summary</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: Report -->
+  <div class="slide" data-idx="8">
+    <img src="08-report.png" alt="Report">
+    <div class="caption">
+      <span class="tag">08 · Report (rekap)</span>
+      <h2>Rekap dan audit trail</h2>
+      <p>Rekap inspeksi, laporan sakit, dan audit trail. Setiap keputusan punya alasan tertulis. Export resmi dengan disclaimer. Audit rows append-only.</p>
+      <div class="metrics">
+        <span class="metric">audit trail</span>
+        <span class="metric">export report</span>
+        <span class="metric">disclaimer enforced</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 9: Architecture -->
+  <div class="slide" data-idx="9">
+    <div class="intro">
+      <span class="tag badge live">Google Cloud Stack</span>
+      <h1 style="font-size:40px">Arsitektur</h1>
+      <div class="flow" style="margin-top:24px;max-width:700px">
+        <span><b>Vertex AI</b> Gemini (tray vision)</span>
+        <span><b>Cloud Run</b> (backend + frontend)</span>
+        <span><b>Firestore</b> (records + audit)</span>
+        <span><b>Cloud Storage</b> (images)</span>
+        <span><b>Artifact Registry</b> (containers)</span>
+        <span><b>IAM</b> least-privilege SA</span>
+        <span><b>Pub/Sub</b> (async queue)</span>
+        <span><b>Cloud Scheduler</b> (deadline)</span>
+      </div>
+      <p style="margin-top:24px;font-size:14px;color:var(--muted)">
+        Orang yang memutuskan. Setiap hasil AI diaudit. confidence_score tetap null.
+      </p>
+    </div>
+  </div>
+
+  <!-- Slide 10: Honest numbers -->
+  <div class="slide" data-idx="10">
+    <div class="intro">
+      <span class="tag badge live">Honest reporting</span>
+      <h1 style="font-size:44px">0 / 50</h1>
+      <p>Gold dataset: 0 of 50. Accuracy: EXPLORATORY. F1: tidak ada. Confusion matrix: tidak ada. Karena tidak ada ground truth, kami tidak mengarang angka.</p>
+      <div class="metrics" style="margin-top:24px">
+        <span class="metric"><b>8</b> images (2 unique)</span>
+        <span class="metric"><b>0</b> gold labels</span>
+        <span class="metric"><b>1</b> live inference</span>
+        <span class="metric"><b>88</b> tests passing</span>
+        <span class="metric"><b>1</b> kill switch verified</span>
+      </div>
+      <p style="margin-top:32px;font-size:14px;color:var(--muted)">
+        Pipeline siap. Collection belum dimulai. Status EXPLORATORY — bukan kegagalan, tapi kejujuran.
+      </p>
+    </div>
+  </div>
+
+  <div class="progress" id="progress"></div>
+  <div class="counter" id="counter">01 / 11</div>
+  <div class="controls">
+    <button class="btn" onclick="prev()">← Prev</button>
+    <button class="btn" onclick="next()">Next →</button>
+    <button class="btn" onclick="toggleAuto()" id="autoBtn">▶ Auto</button>
+  </div>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const progress = document.getElementById('progress');
+const counter = document.getElementById('counter');
+let idx = 0;
+let auto = false;
+let timer = null;
+
+slides.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => go(i);
+  progress.appendChild(d);
+});
+
+function go(n) {
+  slides[idx].classList.remove('active');
+  progress.children[idx].classList.remove('active');
+  idx = (n + slides.length) % slides.length;
+  slides[idx].classList.add('active');
+  progress.children[idx].classList.add('active');
+  counter.textContent = String(idx+1).padStart(2,'0') + ' / ' + String(slides.length).padStart(2,'0');
+}
+function next() { go(idx+1); }
+function prev() { go(idx-1); }
+function start() { go(1); }
+function toggleAuto() {
+  auto = !auto;
+  document.getElementById('autoBtn').textContent = auto ? '⏸ Pause' : '▶ Auto';
+  if (auto) timer = setInterval(next, 5000);
+  else { clearInterval(timer); timer = null; }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') next();
+  if (e.key === 'ArrowLeft') prev();
+  if (e.key === 'Escape') { auto = false; clearInterval(timer); document.getElementById('autoBtn').textContent = '▶ Auto'; }
+});
+</script>
+</body>
+</html>
