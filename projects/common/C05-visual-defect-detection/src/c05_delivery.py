@@ -109,7 +109,11 @@ def register(app, store, roles, scope_fn, actor_fn, body):
         raw, student_image, width, height = _decode(payload)
 
         from shared_mvp.assets import resolve as _resolve_asset
-        qc_path = _resolve_asset('C05', record['storage_path'])
+        storage_path = record.get('storage_path') or f"{record['image_id']}.png"
+        try:
+            qc_path = _resolve_asset('C05', storage_path)
+        except Exception:
+            raise HTTPException(404, 'QC image is no longer available for this inspection') from None
         with Image.open(qc_path) as qc_opened:
             qc_image = qc_opened.convert('L').resize((64, 64))
         student_grey = student_image.convert('L').resize((64, 64))
