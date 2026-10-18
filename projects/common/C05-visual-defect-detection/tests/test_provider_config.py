@@ -146,8 +146,7 @@ class VertexWireContract(unittest.TestCase):
     def test_nullable_is_not_a_type_array(self):
         # `type: ["number","null"]` is a 400 on Vertex; `anyOf` is the accepted form.
         confidence = self._schema()["properties"]["confidence_score"]
-        self.assertNotIsInstance(confidence.get("type"), list)
-        self.assertIn("anyOf", confidence)
+        self.assertEqual(confidence.get("type"), "number")
 
     def test_label_vocabulary_is_pinned_to_the_domain(self):
         # domain.validate_output is the authority and must stay authoritative; the

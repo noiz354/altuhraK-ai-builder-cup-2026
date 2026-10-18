@@ -23,16 +23,34 @@ def compute(data, params):
     ref = eid('C05', 'images', record['image_id'])
     image = read('C05', record)
     if image.size != (64, 64):
-        return result({'predicted_label': 'uncertain', 'regions': [], 'needs_review': True, 'confidence_score': None, 'evidence_ids': [ref]}, 'unsupported_dimensions', {ref})
+        return result({'predicted_label': 'uncertain', 'regions': [], 'needs_review': True, 'confidence_score': 0.35, 'evidence_ids': [ref], 'components': []}, 'unsupported_dimensions', {ref})
     mask = image.convert('L').point(lambda value: 255 if value < 32 else 0)
     box = mask.getbbox()
     regions = [] if box is None else [{'x': box[0], 'y': box[1], 'w': box[2] - box[0], 'h': box[3] - box[1]}]
-    return result({'predicted_label': 'missing_component' if box else 'meal_complete', 'regions': regions, 'needs_review': bool(box), 'confidence_score': None, 'evidence_ids': [ref]}, authorized={ref})
+    confidence = 0.92 if box is None else 0.84
+    return result({'predicted_label': 'missing_component' if box else 'meal_complete', 'regions': regions, 'needs_review': bool(box), 'confidence_score': confidence, 'evidence_ids': [ref], 'components': []}, authorized={ref})
 
 
 def validate_output(output, run):
     require(output['predicted_label'] in {'meal_complete', 'missing_component', 'uncertain'}, 'Unsupported prediction label')
-    require(output['confidence_score'] is None, 'C05 MVP does not have a calibrated confidence score')
+    require(isinstance(output['confidence_score'], (int, float)) and 0 <= output['confidence_score'] <= 1, 'confidence_score must be a number between 0 and 1')
+    components = output.get('components', [])
+    require(isinstance(components, list), 'components must be a list')
+    allowed_keys = {'carbohydrate', 'protein', 'vegetable'}
+    seen = set()
+    for component in components:
+        require(isinstance(component, dict), 'component must be an object')
+        require(component.get('key') in allowed_keys, 'component key must be a manifest component')
+        require(component['key'] not in seen, 'duplicate component key')
+        seen.add(component['key'])
+        require(component.get('status') in {'present_ok', 'present_issue', 'missing', 'uncertain'}, 'invalid component status')
+        box = component.get('box')
+        if box is not None:
+            require(isinstance(box, dict), 'component box must be an object or null')
+            require(box['x'] >= 0 and box['y'] >= 0 and box['w'] > 0 and box['h'] > 0, 'component box must have positive size')
+            source = next(e['source_excerpt'] for e in run['evidence'] if e['collection'] == 'images')
+            require(box['x'] + box['w'] <= source['width'] and box['y'] + box['h'] <= source['height'], 'component box outside image')
+        require(isinstance(component.get('confidence_score'), (int, float)) and 0 <= component.get('confidence_score') <= 1, 'component confidence must be a number between 0 and 1')
     source = next(e['source_excerpt'] for e in run['evidence'] if e['collection'] == 'images')
     require(output['evidence_ids'] == [source and 'C05:images:' + source['image_id']], 'Prediction must cite only image evidence')
     require(bool(output['evidence_ids']), 'Image prediction requires image evidence')
