@@ -42,7 +42,8 @@ def live_request(image_id: str, width: int, height: int) -> tuple[dict, str]:
     # The deterministic baseline only handles 64x64 fixtures; for any real photo
     # it returns this "uncertain / unsupported_dimensions" result (domain.compute).
     baseline = {'predicted_label': 'uncertain', 'regions': [], 'needs_review': True,
-                'confidence_score': None, 'evidence_ids': [ref]}
+                'confidence_score': 0.35, 'evidence_ids': [ref],
+                'components': []}
     run = {'baseline_result': baseline, 'evidence': _evidence('C05', {'images': [record]}, {ref}),
            'config': {'params': {'image_id': image_id}}}
     return build_prompt(CONFIG, run, OUT_MODEL), ref
@@ -50,7 +51,8 @@ def live_request(image_id: str, width: int, height: int) -> tuple[dict, str]:
 
 def target_for(ex: Example, ref: str) -> dict:
     target = {'predicted_label': ex.label, 'regions': ex.boxes, 'needs_review': ex.label != 'meal_complete',
-              'confidence_score': None, 'evidence_ids': [ref]}
+              'confidence_score': 1.0, 'evidence_ids': [ref],
+              'components': []}
     return OUT_MODEL.model_validate(target).model_dump()
 
 

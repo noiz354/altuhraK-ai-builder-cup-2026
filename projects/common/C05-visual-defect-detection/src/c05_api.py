@@ -39,6 +39,10 @@ import c05_agent
 import c05_claims
 import c05_supply
 import c05_gemini
+import c05_guards
+import c05_privacy
+import c05_program
+import c05_investigate
 
 PID = 'C05'
 ROOT = locate(PID)
@@ -82,7 +86,10 @@ def _actor(role: Role) -> str:
 
 
 def _scope(role: Role) -> set[str]:
-    return set(ROLES[role]['kitchens'])
+    entry = ROLES.get(role) if isinstance(role, str) else None
+    if not entry:
+        return set()
+    return set(entry['kitchens'])
 
 
 def _gemini_transport():
@@ -191,6 +198,10 @@ def create_app(db_path=None, provider=None):
         transport = None
     app = _shared_app(PID, db_path, provider, transport, _make_store(db_path))
     store: Store = app.state.store
+
+    # Phase 0 safety: scope asset reads and bound public intake rate.
+    c05_guards.install_guards(app, store, _scope)
+
     if transport is not None:
         # Warm the ADC token at startup. A cold `gcloud auth print-access-token` costs
         # ~17s on this machine, which would otherwise be charged to the first
@@ -465,8 +476,20 @@ def create_app(db_path=None, provider=None):
 
     # ---------------------------------------------------------------- claims
 
-    agent_tool_list_claim_incidents = c05_claims.register(app, store, body, ROLES, _scope, _actor, _now)
     agent_tool_supply_overview, agent_tool_trace_meal = c05_supply.register(app, store, body, ROLES, _scope, _actor, _now)
+    agent_tool_list_claim_incidents = c05_claims.register(app, store, body, ROLES, _scope, _actor, _now)
+
+    def agent_tool_get_claim_incident(actor_role, incident_id):
+        from c05_claims import _incident_view
+        view = _incident_view(incident_id)
+        if view is None:
+            return {'error': 'Unknown claim incident'}
+        if view['kitchen_id'] not in _scope(actor_role):
+            return {'error': 'outside authorized kitchen scope'}
+        return view
+
+    c05_program.register(app, store, ROLES, _scope, _actor, body)
+    c05_investigate.register(app, store, ROLES, _scope, _actor, body)
     # Tests replace this with an async callable(request_body) -> Gemini-shaped response.
     app.state.agent_model = None
 
@@ -507,7 +530,6 @@ def create_app(db_path=None, provider=None):
         'get_inspection': agent_tool_get_inspection,
         'list_inspections': agent_tool_list_inspections,
         'get_kitchen_summary': agent_tool_get_kitchen_summary,
-        'list_claim_incidents': agent_tool_list_claim_incidents,
     }
 
     @app.post('/api/agent/chat')

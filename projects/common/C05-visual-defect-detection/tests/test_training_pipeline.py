@@ -92,7 +92,8 @@ class PipelineEndToEnd(unittest.TestCase):
         target = json.loads(model['parts'][0]['text'])
         # The target must satisfy the same contract the live validator enforces.
         self.assertEqual(target['evidence_ids'], [prompt['evidence'][0]['evidence_id']])
-        self.assertIsNone(target['confidence_score'])
+        self.assertIsInstance(target['confidence_score'], (int, float))
+        self.assertEqual(target['confidence_score'], 1.0)
         self.assertEqual(target['needs_review'], target['predicted_label'] != 'meal_complete')
 
     def test_tuning_request_shape(self):

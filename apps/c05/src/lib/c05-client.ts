@@ -16,8 +16,13 @@ import type {
   Role,
   SupplyCatalog,
   SupplyLot,
+  SupplyAnomaly,
   SupplyOverview,
   SupplyTrace,
+  PublicClaim,
+  ClaimTrace,
+  MenuSpec,
+  DataOverview,
 } from "./c05-types";
 
 /**
@@ -140,6 +145,105 @@ export const c05 = {
 
   submitClaim: (body: ClaimSubmission) =>
     call<{ claim_id: string; incident_id: string; received_at: string; message: string }>("/api/claims", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  // ---------------------------------------------------------- supply lane (port)
+  listSupplyLots: (role: Role, kitchenId?: string, status?: string) => {
+    const qs = new URLSearchParams({ role });
+    if (kitchenId) qs.set("kitchen_id", kitchenId);
+    if (status) qs.set("status", status);
+    return call<{ lots: SupplyLot[]; count: number }>(`/api/supply/lots?${qs.toString()}`);
+  },
+
+  createSupplyLot: (body: {
+    role: Role;
+    kitchen_id: string;
+    ingredient: string;
+    supplier: string;
+    origin: string;
+    travel_time_min: number;
+    arrival_temp_c: number;
+    price_per_unit: number;
+    quantity: number;
+    received_at: string;
+    expires_at?: string;
+  }) => call<SupplyLot>("/api/supply/lots", { method: "POST", body: JSON.stringify(body) }),
+
+  updateSupplyLot: (lotId: string, body: { role: Role; status?: string; reason?: string; trace_to?: string[] }) =>
+    call<SupplyLot>(`/api/supply/lots/${lotId}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  supplyAnomalies: (role: Role, kitchenId?: string) => {
+    const qs = new URLSearchParams({ role });
+    if (kitchenId) qs.set("kitchen_id", kitchenId);
+    return call<{ anomalies: SupplyAnomaly[]; count: number; temperature_threshold_c: number }>(
+      `/api/supply/anomalies?${qs.toString()}`,
+    );
+  },
+
+  // ---------------------------------------------------------- claims lane (port)
+  listClaims: (role: Role, kitchenId?: string) => {
+    const qs = new URLSearchParams({ role });
+    if (kitchenId) qs.set("kitchen_id", kitchenId);
+    return call<{ claims: PublicClaim[]; count: number }>(`/api/claims?${qs.toString()}`);
+  },
+
+  claimTrace: (claimId: string, role: Role) => call<ClaimTrace>(`/api/claims/${claimId}/trace?role=${role}`),
+
+  updateClaim: (claimId: string, body: { role: Role; status?: string; note?: string; investigation_notes?: string }) =>
+    call<PublicClaim>(`/api/claims/${claimId}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  // ------------------------------------------------- menu / dataset surface
+  listMenus: (role: Role) => call<{ menus: MenuSpec[]; count: number }>(`/api/menus?role=${role}`),
+
+  createMenu: (body: {
+    role: Role;
+    menu_id: string;
+    kitchen_id: string;
+    menu_name?: string;
+    required_components: string[];
+    optional_components?: string[];
+  }) => call<MenuSpec>("/api/menus", { method: "POST", body: JSON.stringify(body) }),
+
+  approveMenu: (menuId: string, version: number, role: Role) =>
+    call<MenuSpec>(`/api/menus/${menuId}/v/${version}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
+
+  dataOverview: (role: Role) => call<DataOverview>(`/api/data/overview?role=${role}`),
+
+  // ---------------------------------------------------------- agent
+  agentSuggestions: (role: Role) => {
+    const qs = new URLSearchParams({ role });
+    return call<{ suggestions: string[] }>(`/api/agent/suggestions?${qs.toString()}`);
+  },
+
+  agentFeedback: (body: { role: Role; question: string; answer: string; rating: "up" | "down" | number; feedback?: string }) =>
+    call<{ status: string; feedback_id: string }>("/api/agent/feedback", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  // ---------------------------------------------------------- delivery
+  createDeliveryVerification: (body: {
+    role: Role;
+    kitchen_id?: string;
+    inspection_id: string;
+    mime_type: string;
+    data_base64: string;
+    idempotency_key?: string;
+  }) => call<Record<string, unknown>>("/api/delivery-verifications", { method: "POST", body: JSON.stringify(body) }),
+
+  listDeliveryVerifications: (role: Role, kitchenId?: string) => {
+    const qs = new URLSearchParams({ role });
+    if (kitchenId) qs.set("kitchen_id", kitchenId);
+    return call<{ verifications: Array<Record<string, unknown>> }>(`/api/delivery-verifications?${qs.toString()}`);
+  },
+
+  reviewDeliveryVerification: (id: string, body: { role: Role; decision: "APPROVE" | "REJECT"; comment?: string }) =>
+    call<Record<string, unknown>>(`/api/delivery-verifications/${id}/review`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

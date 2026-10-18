@@ -75,9 +75,9 @@ def _collect(store, kitchen):
 
     warm = [lot for lot in store.list_kind('supply_lot')
             if lot.get('kitchen_id') == kitchen
-            and float(lot.get('arrival_temp_c', 0)) > 5.0]
+            and float(lot.get('arrival_temp_c') or 0) > 5.0]
     if warm:
-        suppliers = sorted({lot['supplier'] for lot in warm})
+        suppliers = sorted({lot.get('supplier_id', lot.get('supplier', '?')) for lot in warm})
         add('supply_lot', ','.join(lot['lot_id'] for lot in warm[:5]), 'arrival_temp_c',
             f"{len(warm)} ingredient lot(s) arrived above the 5 C cold-chain threshold "
             f"from {', '.join(suppliers[:3])}.",

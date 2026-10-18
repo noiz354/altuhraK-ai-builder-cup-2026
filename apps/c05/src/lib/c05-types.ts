@@ -12,8 +12,9 @@ export interface Prediction {
   predicted_label: Label | string;
   regions: Array<{ x: number; y: number; w: number; h: number }>;
   needs_review: boolean;
-  confidence_score: null;
+  confidence_score: number | null;
   evidence_ids: string[];
+  components?: ComponentAssessment[];
 }
 
 export interface Manifest {
@@ -175,6 +176,90 @@ export interface QcReport {
   disclaimer: string;
 }
 
+export interface SupplyAnomaly {
+  lot_id: string;
+  ingredient: string;
+  supplier: string;
+  kitchen_id: string;
+  flags: Array<{ kind: string; message: string; days_remaining?: number; baseline_average?: number; threshold_c?: number }>;
+}
+
+export interface IntegrityFinding {
+  code: string;
+  detail: string;
+  compared: string[];
+}
+
+export interface IntegrityResult {
+  findings: IntegrityFinding[];
+  count: number;
+  medical_priority: string;
+  medical_priority_note: string;
+  related_inspections: string[];
+  related_lots: string[];
+}
+
+export interface PublicClaim {
+  claim_id: string;
+  meal_date: string;
+  symptoms: string[];
+  status: string;
+  contact_masked: string | null;
+  contact_purged: boolean;
+  kitchen_id: string;
+  onset_hours?: number;
+  integrity?: IntegrityResult;
+  fraud_reasons?: string[] | null;
+  investigation_notes?: string | null;
+  created_at?: string;
+}
+
+export interface ClaimTrace {
+  claim_id: string;
+  kitchen_id: string;
+  meal_date: string;
+  medical_priority: string;
+  medical_priority_note: string;
+  findings: IntegrityFinding[];
+  finding_count: number;
+  related_inspections: string[];
+  related_lots: Array<{ lot_id: string; ingredient: string | null; supplier: string | null; origin: string | null }>;
+  contact_masked: string | null;
+}
+
+export interface MenuSpec {
+  menu_id: string;
+  version: number;
+  menu_name: string;
+  kitchen_id: string;
+  required_components: string[];
+  optional_components: string[];
+  unverifiable_requirements: string[];
+  effective_date: string | null;
+  owner: string;
+  status: "draft" | "approved";
+  created_at: string;
+  approved_at: string | null;
+  approved_by: string | null;
+}
+
+export interface Fraction { count: number; of: number; rate: number | null; }
+
+export interface DataOverview {
+  dataset: { inspections: number; annotations: number; adjudicated_gold_labels: number; distinct_image_hashes: number; exact_duplicate_hashes: number; exact_duplicate_inspection_ids: string[]; source: string; };
+  annotation_coverage: Fraction;
+  inter_annotator: { records_with_two_or_more_labels: number; full_agreement: Fraction; note: string; };
+  gold_label_distribution: Record<string, Fraction>;
+  tuning_readiness: { ready: boolean; blocked_by: string[]; note: string; };
+}
+
+export interface ComponentAssessment {
+  key: string;
+  status: string;
+  box: { x: number; y: number; w: number; h: number } | null;
+  confidence_score: number | null;
+}
+
 export interface ApiError {
   detail: string | Array<{ loc: (string | number)[]; msg: string; type: string }>;
 }
@@ -323,29 +408,27 @@ export interface LotFlag {
 
 export interface SupplyLot {
   lot_id: string;
-  kitchen_id: string;
   ingredient: string;
-  label: string;
-  category: string;
-  chilled: boolean;
+  supplier: string;
+  origin: string;
+  travel_time_min: number;
+  arrival_temp_c: number;
+  price_per_unit: number;
   quantity: number;
-  unit: string;
-  unit_price: number;
-  reference_price: number;
-  dispatched_at: string;
   received_at: string;
-  promised_at: string | null;
-  arrival_temp_c: number | null;
-  use_by: string;
-  receiving_status: "ACCEPTED" | "REJECTED";
-  receiving_note: string;
-  used_in: Array<{ meal_date: string; batch_id: string; qty: number }>;
-  transit_min: number;
-  stock_remaining: number;
-  supplier: Supplier;
-  flags: LotFlag[];
-  qty_used?: number;
+  expires_at: string | null;
+  status: "received" | "inspected" | "rejected" | "expired";
+  kitchen_id: string;
+  menu_id: string | null;
+  menu_version: number | null;
+  trace_to: string[];
+  checks: { temp_ok: boolean; expiry_ok: boolean; price_ok: boolean };
+  price_baseline_average: number | null;
+  price_baseline_count: number;
+  days_until_expiry_at_receipt: number | null;
+  created_at: string;
 }
+
 
 export interface SupplyInsight extends LotFlag {
   insight_id: string;
