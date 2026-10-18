@@ -43,6 +43,7 @@ import c05_guards
 import c05_privacy
 import c05_program
 import c05_investigate
+import c05_delivery
 
 PID = 'C05'
 ROOT = locate(PID)
@@ -490,6 +491,7 @@ def create_app(db_path=None, provider=None):
 
     c05_program.register(app, store, ROLES, _scope, _actor, body)
     c05_investigate.register(app, store, ROLES, _scope, _actor, body)
+    c05_delivery.register(app, store, ROLES, _scope, _actor, body)
     # Tests replace this with an async callable(request_body) -> Gemini-shaped response.
     app.state.agent_model = None
 

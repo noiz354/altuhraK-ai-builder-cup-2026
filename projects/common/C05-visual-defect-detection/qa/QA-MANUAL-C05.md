@@ -96,7 +96,7 @@ Tidak ada fixture tray nyata di repo. Gunakan gambar sintetis di atas; jangan gu
   1. Ulangi S02 langkah 1–4.
   2. Klik tombol **Gemini multimodal**.
   3. Klik **Run inspection**.
-- **Hasil yang diharapkan:** Badge `COMPLETED`; `AI PREDICTION — UNVERIFIED`; label `meal_complete` atau `missing_component`/`uncertain`; `confidence_score` angka (mis. `0.90`); `(ESTIMATED, NOT_CALIBRATED)`; daftar `carbohydrate`, `protein`, `vegetable` dengan status dan box; overlay box di atas preview.
+- **Hasil yang diharapkan:** Badge `COMPLETED`; `AI PREDICTION — UNVERIFIED`; label `meal_complete`/`missing_component`/`uncertain`; `confidence_score` angka (mis. `0.90`) dengan label `(ESTIMATED, NOT_CALIBRATED)`; daftar `carbohydrate`, `protein`, `vegetable` dengan status `present_ok`/`present_issue`/`missing`/`uncertain`, box, dan confidence per komponen; overlay box berlabel di atas preview gambar.
 - **Screenshot:** `screenshots/05-crew-ai-result-desktop.png`.
 - **Status:** PASS (API terverifikasi; UI tergantung state mode yang dipilih manual).
 
@@ -143,9 +143,10 @@ Tidak ada fixture tray nyata di repo. Gunakan gambar sintetis di atas; jangan gu
   1. Buka `/admin` atau `/agent`.
   2. Klik saran **“Rangkum inspeksi dapur ini”**.
   3. Amati jawaban dan blok **Tool execution**.
-  4. Ketik manual: `Kenapa inspeksi 9c27660445 perlu review?` lalu Enter/Ask.
-  5. Beri rating 👍/👎, isi feedback, klik **Submit feedback**.
-- **Hasil yang diharapkan:** Jawaban berisi jumlah inspeksi + distribusi label; tool `get_kitchen_summary` / `get_inspection`; feedback tersimpan.
+  4. Ketik manual: `Kenapa inspeksi 9c27660445 perlu review?` lalu Enter/Ask. Hasil harus spesifik per inspeksi, bukan "Ada 17 inspeksi".
+  5. Klik saran yang muncul di panel (dinamis dari data, mis. `Kenapa inspeksi xxx perlu review?`).
+  6. Beri rating 👍/👎, isi feedback, klik **Submit feedback**.
+- **Hasil yang diharapkan:** Jawaban berisi jumlah inspeksi + distribusi label; tool `get_kitchen_summary` / `get_inspection`; feedback tersimpan dengan `feedback_id`; suggested questions berubah sesuai data.
 - **Screenshot:** `12-agent-desktop.png`.
 - **Status:** PASS
 
@@ -209,7 +210,7 @@ Tidak ada fixture tray nyata di repo. Gunakan gambar sintetis di atas; jangan gu
   3. Upload foto makanan yang diterima (mis. `tray-sample.png`).
   4. Klik **Submit for AI scoring**.
   5. Amati `Visual score`, `Quality alert`, dan reason.
-- **Hasil yang diharapkan:** Score 0–1; quality alert trigger jika gambar berbeda; admin panel menampilkan hasil.
+- **Hasil yang diharapkan:** Score 0–1; quality alert trigger jika gambar berbeda atau kualitas menurun; alasan tercatat (`visual_difference_high`, `sharpness_decreased`, dst.); admin panel menampilkan hasil + QC/student quality.
 - **Screenshot:** `11-delivery-desktop.png`.
 - **Status:** PASS (API terverifikasi).
 
@@ -322,6 +323,7 @@ Semua screenshot ada di `qa/screenshots/`. Berikut bukti visual utama:
 ## 10. Hasil aktual (ringkasan)
 
 - **PASS:** 12 skenario (S01–S12) + validasi input + navigasi
+- **Fitur baru:** tombol **Copy** di samping setiap ID (inspeksi, lot, claim, delivery, report) agar ID tidak perlu diketik manual.
 - **BLOCKED:** S13 (kamera live), S14 (tuning pipeline)
 - **Known issues:** 3 (lihat bagian 6)
 - **Test otomatis:** 181 adapter + 18 e2e-provenance + 34 e2e-lanes, semuanya lulus
