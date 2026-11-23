@@ -22,6 +22,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navOpen = openedAt === pathname;
   const active = (href: string) => pathname.startsWith(href);
 
+  // The Material 3 UI prototype brings its own chrome (navigation rail on web,
+  // bottom bar on mobile), so the legacy shell steps aside for /proto.
+  if (pathname.startsWith("/proto")) return <>{children}</>;
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 border-b border-[var(--hairline)] bg-[var(--raised)]/95 backdrop-blur-sm">
