@@ -13,8 +13,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+    // suppressHydrationWarning: browser extensions (e.g. Grammarly) add attributes to
+    // <html>/<body> before React hydrates. This only ignores attribute drift on these
+    // two elements; mismatches inside the app still surface.
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>
     </html>
